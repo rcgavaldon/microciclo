@@ -490,7 +490,7 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
       </div>
       <h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
     <div class="meta noprint">
-      <button class="ghost" id="helpBtnA" style="margin-bottom:8px">? C\u00f3mo se usa</button>
+      <button class="ghost" id="helpBtnA" style="margin-bottom:8px">? Cómo se usa</button>
       <div class="seg" style="min-width:230px">
         <button data-tier="gym" class="tierBtn">Gimnasio</button>
         <button data-tier="hotel" class="tierBtn">Hotel</button>
@@ -1283,7 +1283,7 @@ function renderWeek(node,plan,tier,athlete){
             ? `<span class="play" role="button" tabindex="0" data-vid="${vid}">ver</span>`
             : `<a href="${esc(md.url)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
           <span class="load">${e.load}</span>
-          <span class="cue">${e.detail} — ${esc(e.cue)}</span>
+          <span class="cue">${e.detail}${e.detail&&e.detail!==e.cue?" — "+esc(e.cue):""}</span>
           ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}
           <span class="rowbtns">
             <button data-act="load" data-day="${d.di}" data-ex="${e.id}">carga</button>
@@ -1463,7 +1463,7 @@ function showAthlete(p){
             ? `<span class="play" role="button" tabindex="0" data-vid="${vid}">ver</span>`
             : `<a href="${esc(mu)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
           <span class="load">${esc(x.l)}</span>
-          <span class="cue">${esc(x.d)} — ${esc(e.cue)}</span>
+          <span class="cue">${esc(x.d)}${x.d&&x.d!==e.cue?" — "+esc(e.cue):""}</span>
           ${e.caution?`<span class="warn"><span>\u26a0</span><span>${esc(e.caution)}</span></span>`:""}
           <span class="logrow">
             <span class="lk">Peso usado</span>
