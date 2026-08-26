@@ -323,7 +323,8 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
   <div class="brand"><h1>Microciclo</h1>
     <div class="sub">Planificación semanal por día de partido</div></div>
   <div class="meta" id="coachMeta">
-    <button class="ghost" id="helpBtn">? Ayuda</button>
+    <button class="ghost" id="langBtn" title="English / Espa\u00f1ol">EN</button>
+    <button class="ghost" id="helpBtn" data-t="help">? Ayuda</button>
   </div>
 </header>
 
@@ -372,6 +373,12 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
             <option value="gym">Gimnasio completo</option>
             <option value="hotel">Mancuernas / bandas</option>
             <option value="bodyweight">Peso corporal</option></select></label>
+          <label class="f"><span>Semana del bloque</span><select id="fBlock">
+            <option value="1">1 \u2014 introducci\u00f3n</option>
+            <option value="2">2 \u2014 acumulaci\u00f3n</option>
+            <option value="3">3 \u2014 pico</option>
+            <option value="4">4 \u2014 descarga</option>
+          </select></label>
           <label class="f"><span>Rol en el \u00faltimo partido</span><select id="fRole">
             <option value="starter">Titular \u2014 60+ min</option>
             <option value="part">De cambio \u2014 20-60 min</option>
@@ -490,7 +497,10 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
       </div>
       <h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
     <div class="meta noprint">
-      <button class="ghost" id="helpBtnA" style="margin-bottom:8px">? Cómo se usa</button>
+      <span style="display:flex;gap:6px;margin-bottom:8px;justify-content:flex-end">
+        <button class="ghost" id="langBtnA" title="English / Espa\u00f1ol">EN</button>
+        <button class="ghost" id="helpBtnA" data-t="helpA">? C\u00f3mo se usa</button>
+      </span>
       <div class="seg" style="min-width:230px">
         <button data-tier="gym" class="tierBtn">Gimnasio</button>
         <button data-tier="hotel" class="tierBtn">Hotel</button>
@@ -508,9 +518,98 @@ const $=id=>document.getElementById(id);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
 const nv=id=>{const e=$(id);if(!e)return 0;const v=parseFloat(e.value);return isFinite(v)?v:0;};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const DAYS=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+/* Bilingual UI. Lessons carried over from the Sofia language work:
+   - Never machine-translate domain terms. What practitioners actually say wins,
+     which is why CMJ, sprint, hip thrust, RIR, RPE, sRPE and NordBord stay in
+     English inside Spanish copy -- translating them reads as amateur.
+   - Language is chosen once and remembered; never re-detected mid-session.
+   - Nothing is translated by string replacement at render time. Every string
+     has an explicit pair, so a missing translation is visible, not silently
+     half-translated.
+   - Day and month names come from the dictionary, not from toLocaleString,
+     which follows the device locale rather than the chosen language. */
+let LANG=(function(){try{return localStorage.getItem("mc.lang")||"es";}catch(e){return "es";}})();
+const DICT={
+ es:{
+  daysShort:["Lun","Mar","Mi\u00e9","Jue","Vie","S\u00e1b","Dom"],
+  daysLong:["Lunes","Martes","Mi\u00e9rcoles","Jueves","Viernes","S\u00e1bado","Domingo"],
+  athletes:"Atletas", data:"Datos", week:"Semana", loadStatus:"Estado de carga",
+  reported:"Lo que reportaron", newA:"+ Nuevo", export:"Exportar", import:"Importar",
+  backupLink:"Enlace de respaldo", copy:"Copiar", copyLink:"Copiar enlace",
+  print:"Imprimir", refresh:"Actualizar", generate:"Generar semana",
+  deleteA:"Eliminar atleta", help:"? Ayuda", helpA:"? C\u00f3mo se usa",
+  yourCode:"Tu c\u00f3digo", saveCloud:"Guardar en la nube",
+  general:"Generalizado", withAnalysis:"Con an\u00e1lisis",
+  name:"Nombre", age:"Edad", sex:"Sexo", position:"Posici\u00f3n",
+  height:"Estatura (cm)", weight:"Peso (kg)", trainingYears:"A\u00f1os entrenando",
+  equipment:"Equipo disponible", matchDays:"D\u00edas de partido",
+  male:"Masculino", female:"Femenino",
+  gym:"Gimnasio completo", hotel:"Mancuernas / bandas", bw:"Peso corporal",
+  tierGym:"Gimnasio", tierHotel:"Hotel", tierBw:"Sin equipo",
+  overload:"Sobrecarga progresiva",
+  overloadNote:"S\u00f3lo para atletas en recuperaci\u00f3n o con d\u00e9ficit medido. Desactivado = plan de mantenimiento.",
+  used:"Peso usado", setsDone:"Series hechas", saved:"guardado",
+  sendCoach:"Copiar para el entrenador", today:"hoy", match:"Partido",
+  rest:"Descanso.", noAthletes:"Sin atletas todav\u00eda.",
+  blockWeek:"Semana del bloque", role:"Rol en el \u00faltimo partido",
+  nordicWeek:"Semana protocolo n\u00f3rdico", squat1rm:"Sentadilla 1RM (kg)",
+  rpe:"RPE sesi\u00f3n 0-10", duration:"Duraci\u00f3n (min)"
+ },
+ en:{
+  daysShort:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+  daysLong:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+  athletes:"Athletes", data:"Details", week:"Week", loadStatus:"Load status",
+  reported:"What they reported", newA:"+ New", export:"Export", import:"Import",
+  backupLink:"Backup link", copy:"Copy", copyLink:"Copy link",
+  print:"Print", refresh:"Refresh", generate:"Generate week",
+  deleteA:"Delete athlete", help:"? Help", helpA:"? How to use it",
+  yourCode:"Your code", saveCloud:"Save to the cloud",
+  general:"Generalised", withAnalysis:"With testing",
+  name:"Name", age:"Age", sex:"Sex", position:"Position",
+  height:"Height (cm)", weight:"Weight (kg)", trainingYears:"Years training",
+  equipment:"Equipment", matchDays:"Match days",
+  male:"Male", female:"Female",
+  gym:"Full gym", hotel:"Dumbbells / bands", bw:"Bodyweight",
+  tierGym:"Gym", tierHotel:"Hotel", tierBw:"No kit",
+  overload:"Progressive overload",
+  overloadNote:"Only for athletes in recovery or with a measured deficit. Off = maintenance plan.",
+  used:"Weight used", setsDone:"Sets done", saved:"saved",
+  sendCoach:"Copy for your coach", today:"today", match:"Match",
+  rest:"Rest.", noAthletes:"No athletes yet.",
+  blockWeek:"Block week", role:"Role last match",
+  nordicWeek:"Nordic protocol week", squat1rm:"Squat 1RM (kg)",
+  rpe:"Session RPE 0-10", duration:"Duration (min)"
+ }
+};
+const T=k=>(DICT[LANG]&&DICT[LANG][k])!==undefined?DICT[LANG][k]:DICT.es[k];
+function setLang(l){
+  LANG=(l==="en")?"en":"es";
+  try{localStorage.setItem("mc.lang",LANG);}catch(e){}
+  document.documentElement.lang=LANG;
+  applyLang();
+}
+/* Re-label everything carrying a data-t key, then redraw anything generated. */
+function applyLang(){
+  document.querySelectorAll("[data-t]").forEach(el=>{
+    const v=T(el.getAttribute("data-t"));
+    if(v!==undefined) el.textContent=v;
+  });
+  document.querySelectorAll("[data-topt]").forEach(el=>{
+    const v=T(el.getAttribute("data-topt"));
+    if(v!==undefined) el.textContent=v;
+  });
+  const label = LANG==="es" ? "EN" : "ES";
+  ["langBtn","langBtnA"].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.textContent=label;
+  });
+  DAYS.length=0;    DAYS.push(...T("daysShort"));
+  DAYSL.length=0;   DAYSL.push(...T("daysLong"));
+  if(typeof initDays==="function" && document.getElementById("gameDays")) initDays();
+  if(typeof drawRoster==="function") drawRoster();
+}
+const DAYS=[...DICT.es.daysShort];
 const PRO_IDS=["cmjL0","cmjL1","cmjL2","cmjR0","cmjR1","cmjR2","norL0","norL1","norL2","norR0","norR1","norR2","ehL","cqL","ehR","cqR","s10","s20","s30","sq1rm","refDist","refHsr","refSpr","refAcc"];
-const DAYSL=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const DAYSL=[...DICT.es.daysLong];
 
 /* ───────────── figures ───────────── */
 /* Each movement is drawn as two poses that alternate, so the figure
@@ -1010,10 +1109,28 @@ function kgFor(e,rm,rir){
   const round=kg<40?1:2.5;
   return " \u00b7 ~"+(Math.round(kg/round)*round)+" kg";
 }
+/* A four-week block: build for three weeks, then unload. Week 4 keeps the
+   intensity and cuts the volume, which is what a deload is -- dropping the
+   weight instead would lose the adaptation the block just built. The Nordic
+   protocol runs on its own clock and is not touched by this. */
+const BLOCK={
+  1:{sets:0, rirAdj:+1, es:"Introducci\u00f3n", en:"Introduction",
+     note:"Semana 1: entra con margen. Deja 3 repeticiones en reserva y aprende los patrones."},
+  2:{sets:+1,rirAdj:0,  es:"Acumulaci\u00f3n", en:"Accumulation",
+     note:"Semana 2: se suma una serie en los b\u00e1sicos. Misma t\u00e9cnica, m\u00e1s trabajo."},
+  3:{sets:+1,rirAdj:-1, es:"Pico", en:"Peak",
+     note:"Semana 3: la m\u00e1s exigente del bloque. Acerca el esfuerzo al l\u00edmite sin llegar al fallo."},
+  4:{sets:-2,rirAdj:0,  es:"Descarga", en:"Deload",
+     note:"Semana 4: descarga. Baja el volumen, no la intensidad \u2014 as\u00ed conservas lo ganado."}
+};
 function doseFor(e,band,tr,prog,prof,proFlags){
-  const rir=clamp(band.rir+tr.rirAdj,1,4);
+  const blk=BLOCK[proFlags.block||1];
+  const rir=clamp(band.rir+tr.rirAdj+blk.rirAdj,1,4);
   let sets=tr.sets, reps=tr.reps, extra="";
   if(e.int==="high"&&band.maxInt!=="high") sets=Math.max(2,sets-1);
+  /* Volume steps with the block, but only on the loaded work -- adding a set
+     of sprints or jumps is a different decision from adding a set of squats. */
+  if(RM_RATIO[e.id]) sets=Math.max(1,sets+blk.sets);
   if(e.pat==="jump"||e.pat==="bound") return {load:`${sets} × 5`,detail:`Descanso 60 s`};
   if(e.id==="sprint") return {load:`${clamp(prof.speed+2,3,6)} × 20 m`,detail:"Descanso completo 3 min"};
   if(e.id==="sled")   return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Descanso 90 s"};
@@ -1154,6 +1271,7 @@ function fill(a){
   $("fTa").value=a.ta; $("fTier").value=a.tier; $("fProg").checked=!!a.prog;
   $("fNor").value=a.nor||1;
   $("fRole").value=a.role||"starter";
+  $("fBlock").value=a.block||1;
   $("fRM").value=a.rm||""; $("fRPE").value=a.rpe||""; $("fMin").value=a.smin||"";
   gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
   /* Blank every measurement not present on this athlete, so nothing carries over from whoever was selected before. */
@@ -1173,6 +1291,7 @@ function readForm(){
     ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
     nor:clamp(+$("fNor").value||1,1,5),
     role:$("fRole").value,
+    block:clamp(+$("fBlock").value||1,1,4),
     rm:clamp(+$("fRM").value||0,0,400),
     rpe:clamp(+$("fRPE").value||0,0,10),
     smin:clamp(+$("fMin").value||0,0,240),
@@ -1192,7 +1311,7 @@ function setRoute(r){
 function build(a){
   const prof=POS[a.pos]||POS.medio, band=ageBand(a.age), tr=trainBand(a.ta);
   const map=mdMap(a.games);
-  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0};
+  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0,block:a.block||1};
   const gates=[];
   if(a.route==="pro"){
     const c=gateOne("cmj"), n=gateOne("nor");
@@ -1350,6 +1469,9 @@ function renderCoachInner(){
     <div class="sb"><span class="k">Ruta</span><span class="v">${a.route==="pro"?"Análisis":"General"}</span>
       <span class="n">${a.route==="pro"?"con mediciones":"edad/sexo/posición"}</span></div>
     <div class="sb"><span class="k">Partidos</span><span class="v">${a.games.length}</span><span class="n">${gm}</span></div>
+    <div class="sb"><span class="k">Semana</span>
+      <span class="v">${a.block||1}<span style="font-size:11px;color:var(--muted)">/4</span></span>
+      <span class="n">${BLOCK[a.block||1].es.toLowerCase()}</span></div>
     <div class="sb"><span class="k">Sobrecarga</span><span class="v" style="color:${a.prog?"var(--hot)":"var(--cool)"}">${a.prog?"SÍ":"NO"}</span>
       <span class="n">${a.prog?"progresiva activa":"mantenimiento"}</span></div>
     ${srpe?`<div class="sb"><span class="k">sRPE</span><span class="v">${srpe}</span>
@@ -1364,6 +1486,9 @@ function renderCoachInner(){
   if(a.ageRaw===""||!(+a.ageRaw>=10&&+a.ageRaw<=45))
     nb.push(`<div class="note-box"><b>Revisa la edad.</b> El valor introducido no es válido,
       así que el plan se generó con ${a.age} años. Una edad equivocada cambia las cargas.</div>`);
+  nb.push(`<div class="note-box acc"><b>${BLOCK[a.block||1].es}.</b> ${BLOCK[a.block||1].note}
+    ${(a.block||1)===4?"":" Cuando termines la semana, sube el selector a "+((a.block||1)+1)+" y vuelve a generar."}
+    ${(a.block||1)===4?" Al terminar, vuelve a la semana 1 y considera repetir mediciones.":""}</div>`);
   if(plan.band.note) nb.push(`<div class="note-box"><b>Edad.</b> ${plan.band.note}</div>`);
   if(plan.tr.note)   nb.push(`<div class="note-box"><b>Experiencia.</b> ${plan.tr.note}</div>`);
   if(a.prog) nb.push(`<div class="note-box"><b>Sobrecarga progresiva activa.</b> Añade series por encima del
@@ -1747,6 +1872,13 @@ bindPlayers($("week")); bindPlayers($("avWeek"));
 $("ovlX").onclick=hideHelp;
 $("ovl").addEventListener("click",e=>{ if(e.target===$("ovl")) hideHelp(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") hideHelp(); });
+const flip=()=>{ setLang(LANG==="es"?"en":"es");
+  if(!$("athView").classList.contains("hidden")) location.reload();
+  else if(sel!==null) renderCoach(); };
+if($("langBtn"))  $("langBtn").onclick=flip;
+if($("langBtnA")) $("langBtnA").onclick=flip;
+document.documentElement.lang=LANG;
+applyLang();
 if($("helpBtn"))  $("helpBtn").onclick=()=>showHelp("coach");
 if($("helpBtnA")) $("helpBtnA").onclick=()=>showHelp("ath");
 $("rGen").onclick=()=>setRoute("gen");
@@ -1757,7 +1889,8 @@ $("newA").onclick=()=>{
   $("fAge").value=18; $("fSex").value="m"; $("fHt").value=175;
   $("fWt").value=71; $("fTa").value=2; $("fTier").value="gym"; $("fNor").value=1;
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=""; });
-  $("fRole").value="starter"; $("fRM").value=""; $("fRPE").value=""; $("fMin").value="";
+  $("fRole").value="starter"; $("fBlock").value=1;
+  $("fRM").value=""; $("fRPE").value=""; $("fMin").value="";
   setRoute("gen"); gameDays=[5]; initDays(); drawRoster();
 };
 $("delA").onclick=()=>{
