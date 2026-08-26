@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Microciclo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --paper:#EFF1F0; --surface:#FFFFFF; --sunk:#E4E8E6;
+  --ink:#141A19; --muted:#5E6A67; --rule:#D3D8D6;
+  --accent:#0B5D51; --accent-soft:#DCEAE6;
+  --hot:#A8410F; --hot-soft:#F6E6DC;
+  --cool:#6B7B76; --cool-soft:#E6EAE8;
+  --warn:#8A6D1F; --warn-soft:#F3EDDC;
+  --shadow:0 1px 2px rgba(20,26,25,.06),0 8px 24px rgba(20,26,25,.05);
+  --btn-ink:#fff;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1413; --surface:#161D1B; --sunk:#1D2624; --ink:#E4E8E6;
+  --muted:#93A19D; --rule:#2A3532; --accent:#3FA593; --accent-soft:#12312B;
+  --hot:#E5883F; --hot-soft:#34210F; --cool:#8B9A95; --cool-soft:#1D2624;
+  --warn:#D6B45C; --warn-soft:#2C2413;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --btn-ink:#08110F;
+}}
+:root[data-theme="dark"]{
+  --paper:#0F1413; --surface:#161D1B; --sunk:#1D2624; --ink:#E4E8E6;
+  --muted:#93A19D; --rule:#2A3532; --accent:#3FA593; --accent-soft:#12312B;
+  --hot:#E5883F; --hot-soft:#34210F; --cool:#8B9A95; --cool-soft:#1D2624;
+  --warn:#D6B45C; --warn-soft:#2C2413;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); --btn-ink:#08110F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif;font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,button,.ui{font-family:"Archivo","Helvetica Neue",Arial,sans-serif}
+input,select,.mono,.tag,textarea{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 20px 80px}
+.hidden{display:none!important}
+
+header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
+  border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:22px}
+.brand h1{font-size:clamp(24px,3.2vw,34px);font-weight:700;letter-spacing:-.02em;margin:0}
+.brand .sub{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-top:5px}
+.top .meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
+
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:3px;box-shadow:var(--shadow);margin-bottom:22px}
+.panel > .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:12px 15px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.hd h2{margin:0;font-size:11.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+.hd .note{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted)}
+.panel > .bd{padding:15px}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+@media(min-width:1000px){.cols{grid-template-columns:380px minmax(0,1fr)}}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+label.f{display:flex;flex-direction:column;gap:5px}
+label.f > span{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+input,select,textarea{background:var(--sunk);border:1px solid var(--rule);color:var(--ink);
+  border-radius:2px;padding:7px 9px;font-size:13px;width:100%}
+.g4 input,.g3 input{padding:6px 7px;font-size:12.5px;text-align:right}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+input[type=checkbox]{width:auto;accent-color:var(--accent)}
+
+.seg{display:flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.seg button{flex:1;padding:9px 6px;border:none;background:var(--sunk);color:var(--muted);
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--btn-ink)}
+.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.days button{padding:9px 2px;border:1px solid var(--rule);background:var(--sunk);color:var(--muted);
+  border-radius:2px;font-size:10.5px;font-weight:600;cursor:pointer;letter-spacing:.04em}
+.days button[aria-pressed="true"]{background:var(--hot);color:#fff;border-color:var(--hot)}
+
+button.go{width:100%;margin-top:16px;padding:12px;border:none;border-radius:2px;
+  background:var(--accent);color:var(--btn-ink);cursor:pointer;font-size:11.5px;font-weight:700;
+  letter-spacing:.13em;text-transform:uppercase}
+button.go:hover{filter:brightness(1.12)}
+button.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button.ghost{background:none;border:1px solid var(--rule);color:var(--muted);padding:7px 11px;
+  border-radius:2px;cursor:pointer;font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+.roster{display:flex;flex-direction:column}
+.rw{display:flex;align-items:center;gap:10px;padding:9px 15px;border-bottom:1px solid var(--rule);cursor:pointer}
+.rw:last-child{border-bottom:none}
+.rw:hover{background:var(--sunk)}
+.rw[aria-selected="true"]{background:var(--accent-soft)}
+.rw .nm{font-family:"Archivo",sans-serif;font-weight:600;font-size:13.5px;flex:1}
+.rw .dt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted)}
+
+.tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;padding:3px 7px;border-radius:2px;white-space:nowrap}
+.t-hot{background:var(--hot-soft);color:var(--hot);box-shadow:inset 2px 0 0 var(--hot)}
+.t-cool{background:var(--cool-soft);color:var(--cool);box-shadow:inset 2px 0 0 var(--cool)}
+.t-warn{background:var(--warn-soft);color:var(--warn);box-shadow:inset 2px 0 0 var(--warn)}
+.t-acc{background:var(--accent-soft);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)}
+
+.day{border-bottom:1px solid var(--rule)}
+.day:last-child{border-bottom:none}
+.dayhd{display:flex;align-items:baseline;gap:10px;padding:11px 15px 6px;flex-wrap:wrap}
+.md{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  letter-spacing:.06em;color:var(--accent);min-width:46px}
+.md.game{color:var(--hot)}
+.dayname{font-family:"Archivo",sans-serif;font-weight:600;font-size:14px}
+.quality{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);margin-left:auto}
+.mins{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--muted)}
+
+.ex{display:grid;grid-template-columns:44px 1fr auto;gap:3px 12px;align-items:start;
+  padding:9px 15px;border-top:1px dotted var(--rule)}
+.ex .fig{grid-row:span 2;width:44px;height:44px;color:var(--muted);opacity:.85}
+.ex .nm{font-size:13.5px;font-family:"Source Serif 4",serif}
+.ex .load{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink);
+  white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.ex .cue{grid-column:2/-1;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  color:var(--muted);line-height:1.5}
+.ex .cue b{color:var(--hot);font-weight:600}
+.ex .cue i{color:var(--warn);font-style:normal}
+.rest{padding:10px 15px 12px 15px;font-size:13px;color:var(--muted);font-style:italic}
+
+.strip{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
+.sb{flex:1 1 110px;padding:10px 14px;border-right:1px solid var(--rule)}
+.sb:last-child{border-right:none}
+.sb .k{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}
+.sb .v{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:600;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.sb .n{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--muted);display:block;margin-top:2px}
+
+.share{display:flex;gap:8px;align-items:center;padding:12px 15px;background:var(--sunk);
+  border-top:1px solid var(--rule);flex-wrap:wrap}
+.share input{flex:1;min-width:200px;font-size:11px}
+
+.note-box{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 13px;
+  margin:0 15px 15px;font-size:13px;color:var(--ink);border-radius:0 2px 2px 0}
+.note-box.acc{border-color:var(--accent);background:var(--accent-soft)}
+.note-box b{font-family:"Archivo",sans-serif}
+
+.foot{margin-top:28px;padding-top:16px;border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);
+  line-height:1.75;max-width:78ch}
+.foot b{color:var(--ink)}
+@media print{body{background:#fff}.panel{box-shadow:none;break-inside:avoid}
+  button,.share,.noprint{display:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ COACH ══════════════ -->
+<div class="wrap" id="coachView">
+<header class="top">
+  <div class="brand"><h1>Microciclo</h1>
+    <div class="sub">Planificación semanal &middot; M5&ndash;M1</div></div>
+  <div class="meta" id="coachMeta">v0.3</div>
+</header>
+
+<div class="cols">
+  <div>
+    <section class="panel">
+      <div class="hd"><h2>Atletas</h2><button class="ghost" id="newA">+ Nuevo</button></div>
+      <div class="roster" id="roster"></div>
+    </section>
+
+    <section class="panel" id="formPanel">
+      <div class="hd"><h2>Datos</h2><span class="note" id="routeNote"></span></div>
+      <div class="bd">
+        <div class="seg" style="margin-bottom:14px">
+          <button id="rGen" aria-pressed="true">Generalizado</button>
+          <button id="rPro" aria-pressed="false">Con análisis</button>
+        </div>
+
+        <div class="g2">
+          <label class="f"><span>Nombre</span><input id="fName" value="Jugador Nuevo"></label>
+          <label class="f"><span>Edad</span><input id="fAge" class="num" type="number" min="10" max="45" value="18"></label>
+          <label class="f"><span>Sexo</span><select id="fSex">
+            <option value="m">Masculino</option><option value="f">Femenino</option></select></label>
+          <label class="f"><span>Posición</span><select id="fPos"></select></label>
+          <label class="f"><span>Estatura (cm)</span><input id="fHt" class="num" type="number" min="120" max="220" value="175"></label>
+          <label class="f"><span>Peso (kg)</span><input id="fWt" class="num" type="number" min="30" max="150" value="71"></label>
+          <label class="f"><span>Años entrenando</span><input id="fTa" class="num" type="number" min="0" max="20" value="2"></label>
+          <label class="f"><span>Equipo disponible</span><select id="fTier">
+            <option value="gym">Gimnasio completo</option>
+            <option value="hotel">Mancuernas / bandas</option>
+            <option value="bodyweight">Peso corporal</option></select></label>
+        </div>
+
+        <div style="margin-top:14px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;
+            text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Días de partido</span>
+          <div class="days" id="gameDays"></div>
+        </div>
+
+        <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;cursor:pointer">
+          <input type="checkbox" id="fProg" style="margin-top:3px">
+          <span style="font-size:12.5px;line-height:1.45">
+            <b style="font-family:'Archivo',sans-serif">Sobrecarga progresiva</b><br>
+            <span style="color:var(--muted);font-size:11.5px">Sólo para atletas en recuperación o con déficit medido.
+            Desactivado = plan de mantenimiento.</span></span>
+        </label>
+
+        <div id="proBlock" class="hidden">
+          <div class="test" style="border-top:1px solid var(--rule);padding-top:13px;margin-top:15px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--muted)">CMJ bilateral &mdash; fuerza media propulsiva (N)</span>
+            <div class="g3" style="margin-top:7px">
+              <input class="num" id="cmjL0" placeholder="Izq 1"><input class="num" id="cmjL1" placeholder="Izq 2"><input class="num" id="cmjL2" placeholder="Izq 3">
+              <input class="num" id="cmjR0" placeholder="Der 1"><input class="num" id="cmjR1" placeholder="Der 2"><input class="num" id="cmjR2" placeholder="Der 3">
+            </div>
+          </div>
+          <div class="test" style="border-top:1px solid var(--rule);padding-top:13px;margin-top:13px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--muted)">NordBord &mdash; fuerza excéntrica (N)</span>
+            <div class="g3" style="margin-top:7px">
+              <input class="num" id="norL0" placeholder="Izq 1"><input class="num" id="norL1" placeholder="Izq 2"><input class="num" id="norL2" placeholder="Izq 3">
+              <input class="num" id="norR0" placeholder="Der 1"><input class="num" id="norR1" placeholder="Der 2"><input class="num" id="norR2" placeholder="Der 3">
+            </div>
+          </div>
+          <div class="g4" style="margin-top:13px">
+            <label class="f"><span>Ecc H Izq</span><input id="ehL" class="num" type="number"></label>
+            <label class="f"><span>Con Q Izq</span><input id="cqL" class="num" type="number"></label>
+            <label class="f"><span>Ecc H Der</span><input id="ehR" class="num" type="number"></label>
+            <label class="f"><span>Con Q Der</span><input id="cqR" class="num" type="number"></label>
+          </div>
+          <div class="g4" style="margin-top:9px">
+            <label class="f"><span>10 m (s)</span><input id="s10" class="num" step="0.01" type="number"></label>
+            <label class="f"><span>20 m (s)</span><input id="s20" class="num" step="0.01" type="number"></label>
+            <label class="f"><span>30 m (s)</span><input id="s30" class="num" step="0.01" type="number"></label>
+            <label class="f"><span>Sent. 1RM</span><input id="sq1rm" class="num" type="number"></label>
+          </div>
+          <div class="note-box acc" style="margin:13px 0 0;font-size:12px">
+            Referencia individual de partido &mdash; mediana de 3&ndash;5 partidos completos.
+            Sin esto, los porcentajes de carga no significan nada.
+          </div>
+          <div class="g4" style="margin-top:9px">
+            <label class="f"><span>Dist. tot (m)</span><input id="refDist" class="num" type="number"></label>
+            <label class="f"><span>HSR (m)</span><input id="refHsr" class="num" type="number"></label>
+            <label class="f"><span>Sprint (m)</span><input id="refSpr" class="num" type="number"></label>
+            <label class="f"><span>Acc+Dec</span><input id="refAcc" class="num" type="number"></label>
+          </div>
+        </div>
+
+        <button class="go" id="gen">Generar semana</button>
+        <button class="ghost" id="delA" style="width:100%;margin-top:8px">Eliminar atleta</button>
+      </div>
+    </section>
+  </div>
+
+  <div>
+    <section class="panel" id="outPanel">
+      <div class="hd"><h2>Semana</h2><span class="note" id="wkNote"></span></div>
+      <div class="strip" id="strip"></div>
+      <div id="notes"></div>
+      <div id="week"></div>
+      <div class="share">
+        <input id="shareUrl" readonly placeholder="Genera la semana para crear el enlace">
+        <button class="ghost" id="copyBtn">Copiar enlace</button>
+        <button class="ghost" id="printBtn">Imprimir</button>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="foot" id="foot"></div>
+</div>
+
+<!-- ══════════════ ATHLETE ══════════════ -->
+<div class="wrap hidden" id="athView">
+  <header class="top">
+    <div class="brand"><h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
+    <div class="meta noprint">
+      <div class="seg" style="min-width:230px">
+        <button data-tier="gym" class="tierBtn">Gimnasio</button>
+        <button data-tier="hotel" class="tierBtn">Hotel</button>
+        <button data-tier="bodyweight" class="tierBtn">Sin equipo</button>
+      </div>
+    </div>
+  </header>
+  <div class="panel"><div id="avWeek"></div></div>
+  <div class="foot" id="avFoot"></div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
+const nv=id=>{const e=$(id);if(!e)return 0;const v=parseFloat(e.value);return isFinite(v)?v:0;};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const DAYS=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+const DAYSL=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+
+/* ───────────── figures ───────────── */
+const FIG={
+ squat:'<circle cx="24" cy="9" r="4"/><path d="M24 13v9l-7 7v9M24 22l7 7v9M17 38h-4M31 38h4M14 20h20"/>',
+ hinge:'<circle cx="15" cy="12" r="4"/><path d="M19 14l12 5M31 19v10M31 29v9M27 38h8M31 19l-8 3M23 22l-4 16"/>',
+ lunge:'<circle cx="24" cy="9" r="4"/><path d="M24 13v11M24 24l-8 8v6M24 24l8 6v8M12 38h8M28 38h8"/>',
+ bridge:'<circle cx="11" cy="30" r="4"/><path d="M15 30h9l6-8 6 8M36 30v6M30 22v-6M13 36h26"/>',
+ jump:'<circle cx="24" cy="10" r="4"/><path d="M24 14v10M24 24l-5 8M24 24l5 8M18 16l-6-4M30 16l6-4"/><path d="M24 40v4M20 41l4 4 4-4" opacity=".55"/>',
+ bound:'<circle cx="16" cy="11" r="4"/><path d="M16 15v9l-4 8M16 24l8 5v9M20 38h8M8 32h6"/><path d="M34 20h8M38 16l4 4-4 4" opacity=".55"/>',
+ sprint:'<circle cx="27" cy="9" r="4"/><path d="M27 13l-3 10M24 23l-8 7M24 23l7 6-1 9M28 38h7M12 33h5M31 15l7 3M24 16l-8 2"/>',
+ brace:'<circle cx="10" cy="20" r="4"/><path d="M14 21h22M36 21v8M12 29h26M10 24v5"/>',
+ push:'<circle cx="11" cy="18" r="4"/><path d="M15 20h21M15 20v9M28 20v9M36 20v9M13 29h25"/>',
+ pull:'<circle cx="24" cy="10" r="4"/><path d="M24 14v12M24 26v12M17 20h14M14 38h20M24 20l-8-6M24 20l8-6"/>',
+ isometric:'<circle cx="24" cy="11" r="4"/><path d="M24 15v12M24 27l-6 11M24 27l6 11M16 22h16"/><path d="M8 24h4M36 24h4" opacity=".55"/>',
+ carry:'<circle cx="24" cy="9" r="4"/><path d="M24 13v14M24 27l-4 11M24 27l4 11M17 19h14M14 19v6M34 19v6"/>'
+};
+const fig=p=>`<svg class="fig" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FIG[p]||FIG.brace}</svg>`;
+
+/* ───────────── exercise bank ───────────── */
+/* tiers preserve training INTENT, not just body part */
+const BANK=[
+{id:"squat",es:"Sentadilla trasera",pat:"squat",uni:false,int:"high",md:["M5","M4"],min:9,
+ tiers:{gym:"Sentadilla trasera con barra",hotel:"Sentadilla goblet con mancuerna",bodyweight:"Sentadilla a una pierna asistida (pistol)"},
+ cue:"Rodillas afuera, pecho arriba, baja controlado."},
+{id:"rdl",es:"Peso muerto rumano",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:8,
+ tiers:{gym:"Peso muerto rumano con barra",hotel:"PM rumano con mancuernas",bodyweight:"PM rumano a una pierna sin carga"},
+ cue:"Cadera atrás, espalda recta, siente el isquio."},
+{id:"bulgara",es:"Sentadilla búlgara",pat:"lunge",uni:true,int:"high",md:["M5","M4"],min:8,
+ tiers:{gym:"Búlgara con barra o mancuernas",hotel:"Búlgara con mancuernas",bodyweight:"Búlgara con pausa de 2s abajo"},
+ cue:"Peso en la pierna de adelante, tronco estable."},
+{id:"hipthrust",es:"Empuje de cadera",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:7,
+ tiers:{gym:"Hip thrust con barra",hotel:"Hip thrust con mancuerna",bodyweight:"Puente de glúteo a una pierna"},
+ cue:"Termina apretando glúteo, no arquees la espalda."},
+{id:"slrdl",es:"PM rumano a una pierna",pat:"hinge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+ tiers:{gym:"PM rumano a una pierna con mancuerna",hotel:"PM rumano a una pierna con mancuerna",bodyweight:"PM rumano a una pierna con alcance"},
+ cue:"Cadera cuadrada, baja lento, controla el equilibrio."},
+{id:"nordic",es:"Curl nórdico",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:6,
+ tiers:{gym:"Curl nórdico con anclaje",hotel:"Curl nórdico con compañero",bodyweight:"Curl nórdico con banda de asistencia"},
+ cue:"Baja lo más lento posible, cadera extendida.",
+ caution:"Provoca dolor muscular fuerte si se progresa rápido. Nunca cerca del partido."},
+{id:"hamiso",es:"Isométrico de isquios",pat:"isometric",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
+ tiers:{gym:"Puente isquios a una pierna en banco",hotel:"Puente isquios a una pierna en silla",bodyweight:"Puente isquios a una pierna en el piso"},
+ cue:"Sostén sin que caiga la cadera."},
+{id:"copen",es:"Plancha Copenhague",pat:"brace",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Copenhague completa en banco",hotel:"Copenhague en silla",bodyweight:"Copenhague con rodilla apoyada"},
+ cue:"Empuja con el aductor, cuerpo en línea.",
+ caution:"Progresar desde rodilla apoyada antes de la versión completa."},
+{id:"stepup",es:"Subida al cajón",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+ tiers:{gym:"Subida al cajón con mancuernas",hotel:"Subida a banco con mancuernas",bodyweight:"Subida a escalón con pausa arriba"},
+ cue:"Sube sin impulso de la pierna de atrás."},
+{id:"calf",es:"Elevación de talones",pat:"isometric",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
+ tiers:{gym:"Elevación de talones con carga",hotel:"Elevación de talones con mancuerna",bodyweight:"Elevación de talones a una pierna"},
+ cue:"Rango completo, pausa arriba."},
+{id:"pogo",es:"Saltos pogo",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2"],min:4,
+ tiers:{gym:"Saltos pogo",hotel:"Saltos pogo",bodyweight:"Saltos pogo"},
+ cue:"Tobillo rígido, mínimo tiempo en el piso."},
+{id:"cmj",es:"Salto con contramovimiento",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2","M1"],min:3,
+ tiers:{gym:"CMJ",hotel:"CMJ",bodyweight:"CMJ"},
+ cue:"Salta lo más alto posible, cae suave."},
+{id:"bound",es:"Salto lateral con freno",pat:"bound",uni:true,int:"high",md:["M4","M3"],min:5,
+ tiers:{gym:"Salto lateral con freno",hotel:"Salto lateral con freno",bodyweight:"Salto lateral con freno"},
+ cue:"Aterriza y congela 2 segundos sin que caiga la rodilla."},
+{id:"broad",es:"Salto horizontal",pat:"jump",uni:false,int:"moderate",md:["M4","M3"],min:4,
+ tiers:{gym:"Salto horizontal",hotel:"Salto horizontal",bodyweight:"Salto horizontal"},
+ cue:"Proyecta la cadera hacia adelante."},
+{id:"sled",es:"Empuje de trineo",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:8,
+ tiers:{gym:"Empuje de trineo cargado",hotel:"Sprint en cuesta",bodyweight:"Arranques con salida de 3 pasos"},
+ cue:"Ángulo del cuerpo bajo, pasos potentes."},
+{id:"sprint",es:"Sprint máximo",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:9,
+ tiers:{gym:"Sprint volante 20 m",hotel:"Sprint volante 20 m",bodyweight:"Sprint volante 20 m"},
+ cue:"Descanso completo entre repeticiones. Calidad, no cantidad.",
+ caution:"Requiere calentamiento completo. Nunca con isquios adoloridos."},
+{id:"askip",es:"A-skip",pat:"sprint",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+ tiers:{gym:"A-skip",hotel:"A-skip",bodyweight:"A-skip"},
+ cue:"Rodilla arriba, pie activo, ritmo constante."},
+{id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
+ tiers:{gym:"Press Pallof en polea",hotel:"Press Pallof con banda",bodyweight:"Plancha lateral con elevación"},
+ cue:"No dejes que el tronco gire."},
+{id:"plank",es:"Plancha lateral",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+ tiers:{gym:"Plancha lateral con carga",hotel:"Plancha lateral con peso",bodyweight:"Plancha lateral"},
+ cue:"Cadera alta, cuerpo en línea recta."},
+{id:"deadbug",es:"Dead bug",pat:"brace",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+ tiers:{gym:"Dead bug con carga",hotel:"Dead bug con banda",bodyweight:"Dead bug"},
+ cue:"Espalda baja pegada al piso todo el tiempo."},
+{id:"pushup",es:"Lagartijas",pat:"push",uni:false,int:"low",md:["M5","M4","M3"],min:4,
+ tiers:{gym:"Press de banca",hotel:"Press con mancuernas",bodyweight:"Lagartijas con tempo 3s"},
+ cue:"Cuerpo en tabla, codos a 45 grados."},
+{id:"row",es:"Remo",pat:"pull",uni:false,int:"low",md:["M5","M4","M3"],min:4,
+ tiers:{gym:"Remo con barra",hotel:"Remo con mancuerna",bodyweight:"Remo invertido bajo una mesa"},
+ cue:"Lleva el codo atrás, no encojas el hombro."},
+{id:"carry",es:"Caminata del granjero",pat:"carry",uni:false,int:"low",md:["M5","M4","M3"],min:4,
+ tiers:{gym:"Caminata del granjero",hotel:"Caminata con mancuernas",bodyweight:"Caminata en zancada con pausa"},
+ cue:"Hombros abajo, tronco firme, pasos cortos."},
+{id:"mobility",es:"Movilidad de cadera y tobillo",pat:"isometric",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:6,
+ tiers:{gym:"Circuito de movilidad",hotel:"Circuito de movilidad",bodyweight:"Circuito de movilidad"},
+ cue:"Sin prisa. Respira en cada posición."},
+{id:"bike",es:"Bici suave",pat:"isometric",uni:false,int:"low",md:["M5"],min:12,
+ tiers:{gym:"Bici estática suave",hotel:"Bici o caminata rápida",bodyweight:"Caminata rápida"},
+ cue:"Conversacional. No debe cansarte."},
+{id:"rondo",es:"Rondo / toque",pat:"sprint",uni:false,int:"low",md:["M1"],min:8,
+ tiers:{gym:"Rondo con balón",hotel:"Rondo con balón",bodyweight:"Toque y cambios de dirección suaves"},
+ cue:"Ritmo alegre, sin duelos fuertes."}
+];
+const byId=i=>BANK.find(x=>x.id===i);
+
+/* ───────────── position profiles ───────────── */
+const POS={
+ extremo:{es:"Extremo",speed:3,strength:2,hsr:3,jump:1,cod:3},
+ lateral:{es:"Lateral",speed:3,strength:2,hsr:3,jump:1,cod:2},
+ central:{es:"Central",speed:1,strength:3,hsr:1,jump:3,cod:2},
+ medio:{es:"Mediocampista",speed:2,strength:2,hsr:3,jump:1,cod:3},
+ delantero:{es:"Delantero",speed:3,strength:3,hsr:2,jump:2,cod:2},
+ portero:{es:"Portero",speed:1,strength:2,hsr:0,jump:3,cod:2}
+};
+
+/* ───────────── generalized engine ───────────── */
+function ageBand(a){
+  if(a<16) return {k:"u16",rir:4,ecc:false,maxInt:"moderate",
+    note:"Menor de 16: técnica y dominio del peso corporal. Sin excéntrico máximo ni cargas altas."};
+  if(a<19) return {k:"u19",rir:3,ecc:true,maxInt:"high",
+    note:"16&ndash;18: se introduce carga progresiva. El excéntrico se progresa despacio."};
+  if(a<30) return {k:"adult",rir:2,ecc:true,maxInt:"high",note:""};
+  return {k:"vet",rir:3,ecc:true,maxInt:"high",
+    note:"30+: se prioriza recuperación. Menos volumen, misma intensidad."};
+}
+function trainBand(t){
+  /* reps use a literal en dash — these strings are escaped on the athlete's
+     side, so an HTML entity here would render as visible markup */
+  if(t<1) return {rirAdj:1,sets:2,reps:"10–12",
+    note:"Menos de 1 año entrenando: patrones básicos antes que carga."};
+  if(t<3) return {rirAdj:0,sets:3,reps:"8–10",note:""};
+  return {rirAdj:0,sets:3,reps:"5–8",note:""};
+}
+
+/* Map each weekday to its match-day label.
+   A day is simultaneously MD+n of the last match and M-n of the next.
+   Close to the previous match, recovery binds; otherwise the next match binds. */
+function mdMap(gameDays){
+  const out=[];
+  for(let d=0;d<7;d++){
+    if(gameDays.includes(d)){out.push({d,md:"MD",game:true});continue;}
+    let fwd=99,back=99;
+    for(const g of gameDays){
+      const f=(g-d+7)%7; if(f>0&&f<fwd) fwd=f;
+      const b=(d-g+7)%7; if(b>0&&b<back) back=b;
+    }
+    let md,focus;
+    if(back===1){ md="MD+1"; focus="recover"; }
+    else if(back===2&&fwd>=4){ md="MD+2"; focus="deep"; }
+    else { const n=Math.min(fwd,5); md="M"+n; focus=QUAL["M"+n].focus; }
+    out.push({d,md,focus,game:false,fwd,back});
+  }
+  return out;
+}
+const QUAL={
+ MD:{es:"Partido",focus:"game"},
+ M1:{es:"Activación",focus:"primer"},
+ M2:{es:"Descarga y velocidad breve",focus:"taper"},
+ M3:{es:"Especificidad y velocidad",focus:"speed"},
+ M4:{es:"Fuerza y carga mecánica",focus:"strength"},
+ M5:{es:"Compensar o desarrollar",focus:"recover"}
+};
+const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
+ speed:"Especificidad y velocidad",strength:"Fuerza y carga mecánica",
+ taper:"Descarga y velocidad breve",primer:"Activación",game:"Partido"};
+
+function pickFor(focus,prof,band,tier,sex,proFlags){
+  const need=id=>{const e=byId(id);return e&&e.tiers[tier];};
+  let ids=[];
+  if(focus==="recover")  ids=["bike","mobility","hamiso","plank"];
+  if(focus==="deep")     ids=["mobility","row","pushup","deadbug"];
+  if(focus==="strength") ids=["squat","bulgara","rdl","hipthrust","copen","carry"];
+  if(focus==="speed")    ids=[prof.speed>=3?"sprint":"sled","askip","bound","slrdl","row"];
+  if(focus==="taper")    ids=["askip","pogo","cmj","pallof","deadbug"];
+  if(focus==="primer")   ids=["rondo","cmj","askip","plank"];
+
+  if(prof.jump>=3&&focus==="strength") ids.splice(2,0,"broad");
+  if(prof.hsr>=3&&focus==="speed")     ids.push("sprint");
+  if(sex==="f"&&(focus==="strength"||focus==="speed")) ids.push("bound","nordic");
+  if(proFlags.ham&&(focus==="strength"||focus==="recover")) ids.unshift("nordic","slrdl");
+  if(proFlags.limb&&focus==="strength") ids.unshift("bulgara");
+
+  if(!band.ecc) ids=ids.filter(i=>i!=="nordic");
+  ids=[...new Set(ids)].filter(need).filter(i=>{
+    const e=byId(i);
+    const label=focus==="game"?"MD":Object.keys(QUAL).find(k=>QUAL[k].focus===focus);
+    return !label||label==="MD"||e.md.includes(label);
+  });
+  return ids.map(byId);
+}
+
+function doseFor(e,band,tr,prog,prof,proFlags){
+  const rir=clamp(band.rir+tr.rirAdj,1,4);
+  let sets=tr.sets, reps=tr.reps, extra="";
+  if(e.int==="high"&&band.maxInt!=="high") sets=Math.max(2,sets-1);
+  if(e.pat==="jump"||e.pat==="bound") return {load:`${sets} × 5`,detail:`Descanso 60 s`};
+  if(e.id==="sprint") return {load:`${clamp(prof.speed+2,3,6)} × 20 m`,detail:"Descanso completo 3 min"};
+  if(e.id==="sled")   return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Descanso 90 s"};
+  if(e.id==="bike")   return {load:"12 min",detail:"Conversacional"};
+  if(e.id==="rondo")  return {load:"8 min",detail:"Volumen bajo"};
+  if(e.id==="mobility")return{load:"6 min",detail:"Sin prisa"};
+  if(e.pat==="brace"||e.pat==="isometric")
+    return {load:`${sets} × ${e.uni?"25 s/lado":"30 s"}`,detail:"Calidad sobre tiempo"};
+  if(e.id==="nordic") return {load:`${prog?3:2} × 4`,detail:"Bajada de 4 s. Nunca al fallo"};
+  if(prog){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
+  if(proFlags.limb&&e.uni) extra=` · lado ${proFlags.limbSide} +1 serie`;
+  return {load:`${sets}${e.uni?"/lado":""} × ${reps}`,detail:`RIR ${rir}${extra}`};
+}
+
+/* ───────────── pro gate (retained) ───────────── */
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+const sdev=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));};
+function gateOne(pfx){
+  const L=[0,1,2].map(i=>nv(pfx+"L"+i)), R=[0,1,2].map(i=>nv(pfx+"R"+i));
+  if(L.some(v=>v<=0)||R.some(v=>v<=0)) return null;
+  const mL=mean(L),mR=mean(R);
+  const cvv=((sdev(L)/mL)+(sdev(R)/mR))/2*100;
+  const hi=Math.max(mL,mR),lo=Math.min(mL,mR);
+  const asym=(hi-lo)/hi*100;
+  const side=mL<mR?"izquierdo":"derecho";
+  if(cvv>10) return {v:"descartado",asym,cvv,side};
+  if(asym<=cvv) return {v:"ruido",asym,cvv,side};
+  return {v:"real",asym,cvv,side};
+}
+
+/* ───────────── state ───────────── */
+let store=load(), sel=null, route="gen", gameDays=[5], current=null;
+function load(){try{const r=localStorage.getItem("mc.v1");return r?JSON.parse(r):[];}catch(e){return [];}}
+function save(){try{localStorage.setItem("mc.v1",JSON.stringify(store));}catch(e){}}
+
+function initPos(){
+  $("fPos").innerHTML=Object.keys(POS).map(k=>`<option value="${k}">${POS[k].es}</option>`).join("");
+}
+function initDays(){
+  $("gameDays").innerHTML=DAYS.map((d,i)=>
+    `<button type="button" data-d="${i}" aria-pressed="${gameDays.includes(i)}">${d}</button>`).join("");
+  $("gameDays").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.d;
+    if(gameDays.includes(i)) gameDays=gameDays.filter(x=>x!==i); else gameDays.push(i);
+    if(!gameDays.length) gameDays=[i];
+    initDays();
+  });
+}
+function drawRoster(){
+  const r=$("roster");
+  if(!store.length){r.innerHTML='<div class="rest" style="padding:14px 15px">Sin atletas todavía.</div>';return;}
+  r.innerHTML="";
+  store.forEach((a,i)=>{
+    const w=el("div","rw");
+    w.setAttribute("aria-selected",sel===i);
+    w.innerHTML=`<span class="nm">${esc(a.name)}</span>
+      <span class="dt">${POS[a.pos]?POS[a.pos].es:""} · ${a.age}a</span>
+      <span class="tag ${a.route==="pro"?"t-acc":"t-cool"}">${a.route==="pro"?"Análisis":"General"}</span>`;
+    w.onclick=()=>{sel=i;fill(a);drawRoster();};
+    r.appendChild(w);
+  });
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function fill(a){
+  $("fName").value=a.name; $("fAge").value=a.age; $("fSex").value=a.sex;
+  $("fPos").value=a.pos; $("fHt").value=a.ht; $("fWt").value=a.wt;
+  $("fTa").value=a.ta; $("fTier").value=a.tier; $("fProg").checked=!!a.prog;
+  gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
+  if(a.pro) Object.keys(a.pro).forEach(k=>{if($(k))$(k).value=a.pro[k];});
+}
+function readForm(){
+  const pro={};
+  ["cmjL0","cmjL1","cmjL2","cmjR0","cmjR1","cmjR2","norL0","norL1","norL2","norR0","norR1","norR2",
+   "ehL","cqL","ehR","cqR","s10","s20","s30","sq1rm","refDist","refHsr","refSpr","refAcc"]
+   .forEach(k=>{if($(k)&&$(k).value!=="")pro[k]=$(k).value;});
+  return {name:$("fName").value.trim()||"Sin nombre",
+    age:clamp(+$("fAge").value||18,10,45), sex:$("fSex").value, pos:$("fPos").value,
+    ht:clamp(+$("fHt").value||175,120,220), wt:clamp(+$("fWt").value||70,30,150),
+    ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
+    games:gameDays.slice(), route, pro};
+}
+function setRoute(r){
+  route=r;
+  $("rGen").setAttribute("aria-pressed",r==="gen");
+  $("rPro").setAttribute("aria-pressed",r==="pro");
+  $("proBlock").classList.toggle("hidden",r!=="pro");
+  $("routeNote").textContent = r==="pro"
+    ? "Usa mediciones reales" : "Basado en edad, sexo, estatura y posición";
+}
+
+/* ───────────── build week ───────────── */
+function build(a){
+  const prof=POS[a.pos], band=ageBand(a.age), tr=trainBand(a.ta);
+  const map=mdMap(a.games);
+  const proFlags={ham:false,limb:false,limbSide:""};
+  const gates=[];
+  if(a.route==="pro"){
+    const c=gateOne("cmj"), n=gateOne("nor");
+    if(c){gates.push({n:"CMJ fuerza propulsiva",...c}); if(c.v==="real"){proFlags.limb=true;proFlags.limbSide=c.side;}}
+    if(n){gates.push({n:"NordBord excéntrico",...n}); if(n.v==="real"){proFlags.ham=true;if(!proFlags.limb){proFlags.limb=true;proFlags.limbSide=n.side;}}}
+    const hqL=nv("cqL")>0?nv("ehL")/nv("cqL"):0, hqR=nv("cqR")>0?nv("ehR")/nv("cqR"):0;
+    if(hqL&&hqR){
+      const lo=Math.min(hqL,hqR), sd=hqL<hqR?"izquierdo":"derecho";
+      gates.push({n:"Ratio H:Q funcional",v:lo<1?"real":"ruido",asym:lo,cvv:null,side:sd,ratio:true});
+      if(lo<1) proFlags.ham=true;
+    }
+  }
+  const days=map.map(m=>{
+    if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
+      rest:"Día de partido. Sin trabajo complementario."};
+    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags);
+    let budget=52, ex=[], seen=new Set();
+    for(const e of picks){
+      /* two exercises can collapse to the same movement once substituted
+         down an equipment tier — keep only the first */
+      const resolved=e.tiers[a.tier]||e.es;
+      if(seen.has(resolved)) continue;
+      if(budget-e.min<0) continue;
+      seen.add(resolved); budget-=e.min;
+      const d=doseFor(e,band,tr,a.prog,prof,proFlags);
+      ex.push({id:e.id,pat:e.pat,es:e.es,tiers:e.tiers,load:d.load,detail:d.detail,
+        cue:e.cue,caution:e.caution||"",min:e.min});
+    }
+    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,mins:52-budget+8};
+  });
+  return {a,days,gates,band,tr,proFlags};
+}
+
+/* ───────────── render ───────────── */
+function renderWeek(node,plan,tier,athlete){
+  node.innerHTML="";
+  plan.days.forEach(d=>{
+    const w=el("div","day");
+    w.appendChild(el("div","dayhd",
+      `<span class="md${d.game?" game":""}">${d.md}</span>
+       <span class="dayname">${d.day}</span>
+       <span class="quality">${d.q}</span>
+       ${d.game?"":`<span class="mins">· ${d.mins} min</span>`}`));
+    if(d.game||!d.ex.length){
+      w.appendChild(el("div","rest",d.rest||"Descanso."));
+    } else {
+      d.ex.forEach(e=>{
+        const nm=e.tiers[tier]||e.es;
+        const row=el("div","ex");
+        row.innerHTML=`${fig(e.pat)}<span class="nm">${esc(nm)}</span>
+          <span class="load">${e.load}</span>
+          <span class="cue">${e.detail} — ${esc(e.cue)}${e.caution?` <i>⚠ ${esc(e.caution)}</i>`:""}</span>`;
+        w.appendChild(row);
+      });
+    }
+    node.appendChild(w);
+  });
+}
+
+function renderCoach(){
+  const a=readForm();
+  if(sel!==null) store[sel]=a; else {store.push(a);sel=store.length-1;}
+  save(); drawRoster();
+  const plan=build(a); current=plan;
+
+  const gm=a.games.map(d=>DAYS[d]).join(" + ");
+  $("wkNote").textContent=`${a.name} · ${POS[a.pos].es} · ${gm}`;
+  $("strip").innerHTML=`
+    <div class="sb"><span class="k">Ruta</span><span class="v">${a.route==="pro"?"Análisis":"General"}</span>
+      <span class="n">${a.route==="pro"?"con mediciones":"edad/sexo/posición"}</span></div>
+    <div class="sb"><span class="k">Partidos</span><span class="v">${a.games.length}</span><span class="n">${gm}</span></div>
+    <div class="sb"><span class="k">Sobrecarga</span><span class="v" style="color:${a.prog?"var(--hot)":"var(--cool)"}">${a.prog?"SÍ":"NO"}</span>
+      <span class="n">${a.prog?"progresiva activa":"mantenimiento"}</span></div>
+    <div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]}</span>
+      <span class="n">plan base</span></div>`;
+
+  const nb=[];
+  if(plan.band.note) nb.push(`<div class="note-box"><b>Edad.</b> ${plan.band.note}</div>`);
+  if(plan.tr.note)   nb.push(`<div class="note-box"><b>Experiencia.</b> ${plan.tr.note}</div>`);
+  if(a.prog) nb.push(`<div class="note-box"><b>Sobrecarga progresiva activa.</b> Añade series por encima del
+    mantenimiento. Sólo debe estar activa para atletas en recuperación o con déficit medido — revísalo antes de enviar.</div>`);
+  if(a.sex==="f") nb.push(`<div class="note-box acc"><b>Atleta femenina.</b> Se añade trabajo de aterrizaje
+    y control de rodilla, e isquios excéntrico.</div>`);
+  if(plan.gates.length){
+    nb.push(`<div class="note-box acc"><b>Filtro de fiabilidad.</b> ` + plan.gates.map(g=>
+      g.ratio ? `H:Q ${g.asym.toFixed(2)} lado ${g.side} — ${g.v==="real"?"por debajo de 1.00":"adecuado"}`
+      : `${g.n}: asimetría ${g.asym.toFixed(1)}% vs CV propio ${g.cvv.toFixed(1)}% — <b>${g.v}</b>`
+    ).join(" · ") + `</div>`);
+  }
+  if(a.games.length>1) nb.push(`<div class="note-box"><b>Semana congestionada.</b> Con ${a.games.length} partidos
+    no hay día real de desarrollo. El objetivo es recuperar, mantener exposición y llegar disponible.</div>`);
+  $("notes").innerHTML=nb.join("");
+
+  renderWeek($("week"),plan,a.tier,a);
+
+  /* Payload carries exercise IDs only — names, cues and figures are looked up
+     from the bank on the athlete's side. Keeps the link short enough to send. */
+  const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,
+    d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
+      e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail}))}))};
+  const url=location.origin+location.pathname+"#a="+enc(payload);
+  $("shareUrl").value=url;
+  $("shareUrl").title=url.length+" caracteres";
+
+  $("foot").innerHTML=`<b>Cómo se arma.</b> El calendario manda: los días de partido definen M5&ndash;M1 hacia atrás,
+    y la sesión más fuerte cae en M4. Volumen y intensidad no son lo mismo, y la distancia total no representa la carga
+    mecánica — por eso el plan asigna objetivos por cualidad, no una sola carga total.<br><br>
+    <b>Esto es complementario.</b> Si el atleta entrena en un club, hay que sumar entrenamiento del club + partido +
+    gimnasio + rehabilitación. Esta semana no es un microciclo independiente.<br><br>
+    <b>No hay semáforo automático.</b> Ningún indicador aislado decide nada: se observan tendencias individuales
+    durante semanas y se compara al jugador consigo mismo. El plan se modifica a diario, pero nunca por un dato suelto.<br><br>
+    <b>Sobrecarga progresiva.</b> Desactivada por defecto. Para el atleta sano esto es un plan de mantenimiento,
+    no un plan de rehabilitación.`;
+}
+
+/* ───────────── share encode ───────────── */
+function enc(o){
+  const s=JSON.stringify(o);
+  const b=new TextEncoder().encode(s);
+  let bin="";b.forEach(c=>bin+=String.fromCharCode(c));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function dec(t){
+  try{
+    let b=t.replace(/-/g,"+").replace(/_/g,"/");
+    while(b.length%4)b+="=";
+    const bin=atob(b);const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(arr));
+  }catch(e){return null;}
+}
+
+/* ───────────── athlete view ───────────── */
+function showAthlete(p){
+  $("coachView").classList.add("hidden");
+  $("athView").classList.remove("hidden");
+  $("avName").textContent=p.n;
+  $("avSub").textContent=`${POS[p.p]?POS[p.p].es:""} · Partido ${p.g.map(d=>DAYS[d]).join(" y ")}`;
+  let tier=p.t;
+  const draw=()=>{
+    document.querySelectorAll(".tierBtn").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tier===tier));
+    const node=$("avWeek");node.innerHTML="";
+    p.d.forEach(d=>{
+      const w=el("div","day");
+      w.appendChild(el("div","dayhd",
+        `<span class="md${d.G?" game":""}">${d.m}</span><span class="dayname">${d.y}</span>
+         <span class="quality">${d.q}</span>`));
+      if(d.G||!d.e.length) w.appendChild(el("div","rest",d.r||"Descanso."));
+      else d.e.forEach(x=>{
+        const e=byId(x.i); if(!e) return;
+        const row=el("div","ex");
+        row.innerHTML=`${fig(e.pat)}<span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}</span>
+          <span class="load">${esc(x.l)}</span>
+          <span class="cue">${esc(x.d)} — ${esc(e.cue)}${e.caution?` <i>⚠ ${esc(e.caution)}</i>`:""}</span>`;
+        w.appendChild(row);
+      });
+      node.appendChild(w);
+    });
+  };
+  document.querySelectorAll(".tierBtn").forEach(b=>b.onclick=()=>{tier=b.dataset.tier;draw();});
+  draw();
+  $("avFoot").innerHTML=`Si algo te duele —no molestia muscular, sino dolor— no lo hagas y avísale a tu entrenador.
+    Este plan complementa tu entrenamiento de equipo; no lo reemplaza.`;
+}
+
+/* ───────────── boot ───────────── */
+initPos(); initDays(); drawRoster(); setRoute("gen");
+$("rGen").onclick=()=>setRoute("gen");
+$("rPro").onclick=()=>setRoute("pro");
+$("newA").onclick=()=>{sel=null;$("fName").value="Jugador Nuevo";$("fProg").checked=false;
+  gameDays=[5];initDays();drawRoster();};
+$("delA").onclick=()=>{if(sel===null)return;store.splice(sel,1);sel=null;save();drawRoster();};
+$("gen").onclick=renderCoach;
+$("copyBtn").onclick=()=>{const i=$("shareUrl");if(!i.value)return;
+  i.select();navigator.clipboard.writeText(i.value).then(()=>{
+    $("copyBtn").textContent="Copiado";setTimeout(()=>$("copyBtn").textContent="Copiar enlace",1600);});};
+$("printBtn").onclick=()=>window.print();
+
+const h=location.hash;
+if(h.startsWith("#a=")){
+  const p=dec(h.slice(3));
+  if(p&&p.d) showAthlete(p);
+}
+</script>
+</body>
+</html>
