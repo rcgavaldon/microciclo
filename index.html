@@ -720,7 +720,10 @@ function mdMap(gameDays){
     out.forEach(o=>{ if(o.game) return;
       /* Must be clear of the last match as well as the next one: a day can be
          both MD+1 and M4, and neuromuscular fatigue runs up to 72 h. */
-      if(o.back<2||o.fwd<2) return;
+      /* Three clear days before the next match and two after the last one.
+         A day can satisfy one and fail the other -- Saturday in a Mon+Thu week
+         is both MD+2 and M2. */
+      if(o.back<2||o.fwd<3) return;
       if(!best||o.fwd>best.fwd||(o.fwd===best.fwd&&o.back>best.back)) best=o; });
     if(best){ best.focus="micro"; }
   }
@@ -1097,6 +1100,11 @@ function renderCoachInner(){
       : `${g.n}: asimetría ${g.asym.toFixed(1)}% vs CV propio ${g.cvv.toFixed(1)}% — <b>${g.v}</b>`
     ).join(" · ") + `</div>`);
   }
+  if(plan.days.every(d=>d.game||!d.ex.some(x=>{const e=byId(x.id);return e&&e.int==="high";})))
+    nb.push(`<div class="note-box"><b>Sin ventana para trabajo excéntrico.</b>
+      El calendario de esta semana no deja tres días libres antes de un partido,
+      así que no se programa curl nórdico ni carga excéntrica alta. Retómalo en
+      cuanto haya una semana con un solo partido.</div>`);
   if(a.games.length>1) nb.push(`<div class="note-box"><b>Semana congestionada.</b> Con ${a.games.length} partidos
     no hay día real de desarrollo. El objetivo es recuperar, mantener exposición y llegar disponible.</div>`);
   $("notes").innerHTML=nb.join("");
