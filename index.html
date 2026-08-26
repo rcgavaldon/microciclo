@@ -826,7 +826,14 @@ function renderWeek(node,plan,tier,athlete){
 
 function renderCoach(){
   const a=readForm();
-  if(sel!==null) store[sel]=a; else {store.push(a);sel=store.length-1;}
+  if(sel!==null){ store[sel]=a; }
+  else {
+    /* Generating twice without picking an athlete used to create duplicates,
+       and the placeholder name got saved as a real athlete. Match on name. */
+    const i=store.findIndex(x=>x.name===a.name);
+    if(i>=0){ store[i]=a; sel=i; }
+    else { store.push(a); sel=store.length-1; }
+  }
   save(); drawRoster();
   const plan=build(a); current=plan;
 
