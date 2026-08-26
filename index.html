@@ -15,7 +15,7 @@
   --accent:#0B5D51; --accent-soft:#DCEAE6;
   --hot:#A8410F; --hot-soft:#F6E6DC;
   --cool:#6B7B76; --cool-soft:#E6EAE8;
-  --warn:#8A6D1F; --warn-soft:#F3EDDC;
+ --warn:#6E5518; --warn-soft:#F3EDDC;
   --shadow:0 1px 2px rgba(20,26,25,.06),0 8px 24px rgba(20,26,25,.05);
   --btn-ink:#fff;
 }
@@ -91,11 +91,14 @@ button.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 button.ghost{background:none;border:1px solid var(--rule);color:var(--muted);padding:7px 11px;
   border-radius:2px;cursor:pointer;font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
 button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visible,
+.play:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .roster{display:flex;flex-direction:column}
 .rw{display:flex;align-items:center;gap:10px;padding:9px 15px;border-bottom:1px solid var(--rule);cursor:pointer}
 .rw:last-child{border-bottom:none}
 .rw:hover{background:var(--sunk)}
+.rw:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .rw[aria-selected="true"]{background:var(--accent-soft)}
 .rw .nm{font-family:"Archivo",sans-serif;font-weight:600;font-size:13.5px;flex:1}
 .rw .dt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted)}
@@ -113,6 +116,7 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 .md{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
   letter-spacing:.06em;color:var(--accent);min-width:46px}
 .md.game{color:var(--hot)}
+.md .alt{color:var(--muted);font-weight:400}
 .dayname{font-family:"Archivo",sans-serif;font-weight:600;font-size:14px}
 .quality{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.09em;
   text-transform:uppercase;color:var(--muted);margin-left:auto}
@@ -174,6 +178,20 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 .rowbtns button:hover{border-color:var(--accent);color:var(--accent)}
 .ex.dropped{opacity:.4}
 .ex.dropped .nm{text-decoration:line-through}
+@media(max-width:560px){
+  .wrap{padding:16px 12px 60px}
+  .ex{grid-template-columns:34px 1fr;gap:2px 9px;padding:9px 12px}
+  .ex .fig{width:34px;height:34px;grid-row:span 1}
+  .ex .load{grid-column:2;text-align:left;white-space:normal;margin-top:1px}
+  .ex .cue,.ex .warn,.ex .rowbtns,.ex .vidwrap,.ex .vidbar{grid-column:1/-1}
+  .ex .rowbtns{justify-content:flex-start;flex-wrap:wrap}
+  .panel > .hd{flex-wrap:wrap}
+  .hd span{flex-wrap:wrap}
+  .dayhd{flex-wrap:wrap;row-gap:2px}
+  .quality{margin-left:0;flex-basis:100%}
+  .g4,.g3{grid-template-columns:1fr 1fr}
+  .share{flex-wrap:wrap}
+}
 .rest{padding:10px 15px 12px 15px;font-size:13px;color:var(--muted);font-style:italic}
 
 .strip{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
@@ -198,7 +216,14 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
   font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);
   line-height:1.75;max-width:78ch}
 .foot b{color:var(--ink)}
-@media print{body{background:#fff}.panel{box-shadow:none;break-inside:avoid}
+@media print{
+  /* The viewer's dark palette would otherwise print near-white text on white. */
+  :root{--paper:#fff;--surface:#fff;--sunk:#fff;--ink:#111;--muted:#555;--rule:#bbb;
+        --accent:#0B5D51;--hot:#A8410F;--warn:#6b5410;--warn-soft:#f4f0e2;
+        --cool:#666;--cool-soft:#f2f2f2;--accent-soft:#e8f0ee;--hot-soft:#f7ece5}
+  body{background:#fff;color:#111}
+  .vidwrap,.vidbar{display:none!important}
+  .panel{box-shadow:none;break-inside:avoid}
   button,.share,.noprint{display:none!important}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -209,7 +234,7 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 <div class="wrap" id="coachView">
 <header class="top">
   <div class="brand"><h1>Microciclo</h1>
-    <div class="sub">Planificación semanal &middot; M5&ndash;M1</div></div>
+    <div class="sub">Planificación semanal por día de partido</div></div>
   <div class="meta" id="coachMeta">v0.3</div>
 </header>
 
@@ -610,6 +635,9 @@ function ytId(u){
 }
 const ytSearch=n=>"https://www.youtube.com/results?search_query="+
   encodeURIComponent(n+" tecnica ejercicio");
+/* Only ever emit http(s). A crafted athlete link could otherwise put a
+   javascript: URI on every exercise name. */
+function safeUrl(u){ return /^https?:\/\//i.test(String(u||"")) ? u : ""; }
 function mediaFor(id){
   const ov=OVERRIDES[id];                 if(ov) return {url:ov,kind:"propio"};
   const m=MEDIA[id];                      if(m&&m.url) return {url:m.url,kind:"video"};
@@ -673,11 +701,25 @@ function mdMap(gameDays){
       const f=(g-d+7)%7; if(f>0&&f<fwd) fwd=f;
       const b=(d-g+7)%7; if(b>0&&b<back) back=b;
     }
-    let md,focus;
-    if(back===1){ md="MD+1"; focus="recover"; }
-    else if(back===2&&fwd>=4){ md="MD+2"; focus="deep"; }
+    /* The next match outranks the last one inside two days: a day that is
+       both MD+1 and the day before the next game is an activation day, not
+       a recovery day. That inversion put Bici suave the day before a match. */
+    let md,focus,alt="";
+    if(fwd<=2){ md="M"+fwd; focus=QUAL["M"+fwd].focus; if(back<=2) alt="MD+"+back; }
+    else if(back===1){ md="MD+1"; focus="recover"; alt="M"+Math.min(fwd,5); }
+    else if(back===2){ md="MD+2"; focus="deep"; alt="M"+Math.min(fwd,5); }
     else { const n=Math.min(fwd,5); md="M"+n; focus=QUAL["M"+n].focus; }
-    out.push({d,md,focus,game:false,fwd,back});
+    out.push({d,md,alt,focus,game:false,fwd,back});
+  }
+  /* A congested week has no development day at all, which also silenced the
+     Nordic protocol for anyone playing twice a week. Give the roomiest
+     non-match day a microdose so exposure is maintained. */
+  const hasBuild=out.some(o=>o.focus==="strength"||o.focus==="speed");
+  if(!hasBuild){
+    let best=null;
+    out.forEach(o=>{ if(o.game) return;
+      if(!best||o.fwd>best.fwd||(o.fwd===best.fwd&&o.back>best.back)) best=o; });
+    if(best&&best.fwd>=2){ best.focus="micro"; }
   }
   return out;
 }
@@ -690,6 +732,7 @@ const QUAL={
  M5:{es:"Compensar o desarrollar",focus:"recover"}
 };
 const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
+ micro:"Microdosis de mantenimiento",
  speed:"Especificidad y velocidad",strength:"Fuerza y carga mecánica",
  taper:"Descarga y velocidad breve",primer:"Activación",game:"Partido"};
 
@@ -697,7 +740,12 @@ const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
    the generator AND the swap picker so an edit cannot bypass it. */
 function legalOn(e,label){
   if(!label||label==="MD") return false;
-  if(label==="MD+1"||label==="MD+2") return e.int==="low";
+  if(label==="MICRO") return e.int!=="high"||e.id==="nordic";
+  if(label==="MD+1") return e.int==="low";
+  /* Two days out, moderate work is fine — his own table calls for individual
+     or upper-body work here. Restricting to "low" silently deleted half the
+     day and made the horizontal press unreachable app-wide. */
+  if(label==="MD+2") return e.int!=="high";
   return e.md.indexOf(label)>=0;
 }
 function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
@@ -709,6 +757,12 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
 
   if(focus==="recover"){ core=["bike","mobility","hamiso","balance"]; }
   if(focus==="deep")   { core=["mobility","row","pushup","deadbug"]; extra=["soleus"]; }
+  if(focus==="micro"){
+    /* Reduced but real: keeps the eccentric protocol alive in a week that
+       has no development day. */
+    if(band.ecc) must.push("nordic");
+    core=["slrdl","hipthrust","copen"]; extra=["pallof","calf"];
+  }
   if(focus==="strength"){
     /* Eccentric knee-flexor work is the highest-value prevention item in
        soccer, so it is budgeted before the barbell work, not after. */
@@ -761,9 +815,11 @@ function doseFor(e,band,tr,prog,prof,proFlags){
      id-specific rules — the rondo is tagged as a sprint pattern and was
      picking up "4 x 20 m" instead of its own duration. */
   if(e.pat==="sprint") return {load:"4 × 20 m",detail:"Calidad sobre volumen"};
-  if(e.pat==="brace"||e.pat==="isometric")
+  if(e.pat==="brace"||e.pat==="isometric"||e.id==="hamiso")
     return {load:`${sets} × ${e.uni?"25 s/lado":"30 s"}`,detail:"Calidad sobre tiempo"};
   if(e.id==="nordic"){
+    if(proFlags.micro) return {load:"1 × 3",
+      detail:"Dosis de mantenimiento · semana con dos partidos"};
     const n=nordicDose(proFlags.nordicWk);
     return {load:`${n.sets} × ${n.reps}`,
       detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
@@ -778,7 +834,9 @@ const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
 const sdev=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));};
 function gateOne(pfx){
   const L=[0,1,2].map(i=>nv(pfx+"L"+i)), R=[0,1,2].map(i=>nv(pfx+"R"+i));
-  if(L.some(v=>v<=0)||R.some(v=>v<=0)) return null;
+  const any=[...L,...R].some(v=>v!==0);
+  if(L.some(v=>!(v>0))||R.some(v=>!(v>0)))
+    return any?{v:"incompleto"}:null;   /* partially filled must not read as "not measured" */
   const mL=mean(L),mR=mean(R);
   const cvv=((sdev(L)/mL)+(sdev(R)/mR))/2*100;
   const hi=Math.max(mL,mR),lo=Math.min(mL,mR);
@@ -821,11 +879,14 @@ function drawRoster(){
   r.innerHTML="";
   store.forEach((a,i)=>{
     const w=el("div","rw");
+    w.tabIndex=0; w.setAttribute("role","button");
     w.setAttribute("aria-selected",sel===i);
     w.innerHTML=`<span class="nm">${esc(a.name)}</span>
       <span class="dt">${POS[a.pos]?POS[a.pos].es:""} · ${a.age}a</span>
       <span class="tag ${a.route==="pro"?"t-acc":"t-cool"}">${a.route==="pro"?"Análisis":"General"}</span>`;
-    w.onclick=()=>{sel=i;fill(a);drawRoster();};
+    const pick=()=>{sel=i;fill(a);drawRoster();};
+    w.onclick=pick;
+    w.onkeydown=ev=>{ if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();pick();} };
     r.appendChild(w);
   });
 }
@@ -840,13 +901,16 @@ function fill(a){
   /* Blank every measurement not present on this athlete, so nothing carries over from whoever was selected before. */
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=(a.pro&&a.pro[k]!==undefined)?a.pro[k]:""; });
 }
+let _nextId=Date.now();
+const newId=()=>"a"+(_nextId++).toString(36);
 function readForm(){
   const pro={};
   ["cmjL0","cmjL1","cmjL2","cmjR0","cmjR1","cmjR2","norL0","norL1","norL2","norR0","norR1","norR2",
    "ehL","cqL","ehR","cqR","s10","s20","s30","sq1rm","refDist","refHsr","refSpr","refAcc"]
    .forEach(k=>{if($(k)&&$(k).value!=="")pro[k]=$(k).value;});
-  return {name:$("fName").value.trim()||"Sin nombre",
-    age:clamp(+$("fAge").value||18,10,45), sex:$("fSex").value, pos:$("fPos").value,
+  return {id:(sel!==null&&store[sel]&&store[sel].id)||newId(),
+    name:$("fName").value.trim()||"Sin nombre",
+    age:clamp(+$("fAge").value||18,10,45), ageRaw:$("fAge").value, sex:$("fSex").value, pos:$("fPos").value,
     ht:clamp(+$("fHt").value||175,120,220), wt:clamp(+$("fWt").value||70,30,150),
     ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
     nor:clamp(+$("fNor").value||1,1,5),
@@ -864,7 +928,7 @@ function setRoute(r){
 
 /* ───────────── build week ───────────── */
 function build(a){
-  const prof=POS[a.pos], band=ageBand(a.age), tr=trainBand(a.ta);
+  const prof=POS[a.pos]||POS.medio, band=ageBand(a.age), tr=trainBand(a.ta);
   const map=mdMap(a.games);
   const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1};
   const gates=[];
@@ -872,9 +936,12 @@ function build(a){
     const c=gateOne("cmj"), n=gateOne("nor");
     if(c){gates.push({n:"CMJ fuerza propulsiva",...c}); if(c.v==="real"){proFlags.limb=true;proFlags.limbSide=c.side;}}
     if(n){gates.push({n:"NordBord excéntrico",...n}); if(n.v==="real"){proFlags.ham=true;if(!proFlags.limb){proFlags.limb=true;proFlags.limbSide=n.side;}}}
-    const hqL=nv("cqL")>0?nv("ehL")/nv("cqL"):0, hqR=nv("cqR")>0?nv("ehR")/nv("cqR"):0;
-    if(hqL&&hqR){
-      const lo=Math.min(hqL,hqR), sd=hqL<hqR?"izquierdo":"derecho";
+    const hqL=(nv("cqL")>0&&nv("ehL")>0)?nv("ehL")/nv("cqL"):0,
+          hqR=(nv("cqR")>0&&nv("ehR")>0)?nv("ehR")/nv("cqR"):0;
+    if(hqL>0&&hqR>0){
+      const lo=Math.min(hqL,hqR);
+      /* Equal sides are a bilateral finding, not a phantom one-legged deficit. */
+      const sd=hqL===hqR?"ambos lados":(hqL<hqR?"izquierdo":"derecho");
       gates.push({n:"Ratio H:Q funcional",v:lo<1?"real":"ruido",asym:lo,cvv:null,side:sd,ratio:true});
       if(lo<1) proFlags.ham=true;
     }
@@ -882,7 +949,9 @@ function build(a){
   const days=map.map(m=>{
     if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
-    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,m.md);
+    proFlags.micro=(m.focus==="micro");
+    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,
+      m.focus==="micro"?"MICRO":m.md);
     let budget=45, ex=[], seen=new Set();
     for(const e of picks){
       /* two exercises can collapse to the same movement once substituted
@@ -909,7 +978,7 @@ function build(a){
       }
       return o.load?{...x,load:o.load,detail:x.detail+" · ajustado"}:x;
     });
-    return {md:m.md,di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
+    return {md:m.md,alt:m.alt||"",di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
             mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
   });
   return {a,days,gates,band,tr,proFlags};
@@ -921,7 +990,8 @@ function renderWeek(node,plan,tier,athlete){
   plan.days.forEach(d=>{
     const w=el("div","day");
     w.appendChild(el("div","dayhd",
-      `<span class="md${d.game?" game":""}">${d.md}</span>
+      `<span class="md${d.game?" game":""}">${d.md}${
+         d.alt?`<span class="alt"> · ${d.alt}</span>`:""}</span>
        <span class="dayname">${d.day}</span>
        <span class="quality">${d.q}</span>
        ${d.game?"":`<span class="mins">· ${d.mins} min</span>`}`));
@@ -954,7 +1024,24 @@ function renderWeek(node,plan,tier,athlete){
 }
 
 function renderCoach(){
+  try{ return renderCoachInner(); }
+  catch(err){
+    /* Never leave one athlete's plan and share link on screen under another
+       athlete's name. */
+    $("week").innerHTML=""; $("strip").innerHTML=""; $("notes").innerHTML="";
+    $("shareUrl").value=""; $("wkNote").textContent="";
+    $("notes").innerHTML='<div class="note-box"><b>No se pudo generar la semana.</b> '+
+      'Revisa los datos de este atleta. Detalle: '+esc(err.message)+'</div>';
+    return;
+  }
+}
+function renderCoachInner(){
   const a=readForm();
+  if(a.name==="Jugador Nuevo"){
+    const n=prompt("¿Cómo se llama el atleta?","");
+    if(n===null||!n.trim()) return;
+    $("fName").value=n.trim(); a.name=n.trim();
+  }
   if(sel!==null && store[sel] && store[sel].name!==a.name){
     /* Typing a new name over a selected athlete used to rename them
        silently, losing the original. Make it an explicit choice. */
@@ -966,15 +1053,21 @@ function renderCoach(){
   else {
     /* Generating twice without picking an athlete used to create duplicates,
        and the placeholder name got saved as a real athlete. Match on name. */
-    const i=store.findIndex(x=>x.name===a.name);
+    /* Names are not unique on a squad list — two players can share one.
+       Match on id; a genuinely new record always gets its own row. */
+    const i=store.findIndex(x=>x.id&&x.id===a.id);
     if(i>=0){ store[i]=a; sel=i; }
-    else { store.push(a); sel=store.length-1; }
+    else {
+      if(store.some(x=>x.name===a.name) &&
+         !confirm("Ya existe un atleta llamado "+a.name+".\n\nAceptar = crear otro de todas formas.")) return;
+      store.push(a); sel=store.length-1;
+    }
   }
   save(); drawRoster();
   const plan=build(a); current=plan;
 
   const gm=a.games.map(d=>DAYS[d]).join(" + ");
-  $("wkNote").textContent=`${a.name} · ${POS[a.pos].es} · ${gm}`;
+  $("wkNote").textContent=`${a.name} · ${(POS[a.pos]||POS.medio).es} · ${gm}`;
   $("strip").innerHTML=`
     <div class="sb"><span class="k">Ruta</span><span class="v">${a.route==="pro"?"Análisis":"General"}</span>
       <span class="n">${a.route==="pro"?"con mediciones":"edad/sexo/posición"}</span></div>
@@ -985,6 +1078,9 @@ function renderCoach(){
       <span class="n">plan base</span></div>`;
 
   const nb=[];
+  if(a.ageRaw===""||!(+a.ageRaw>=10&&+a.ageRaw<=45))
+    nb.push(`<div class="note-box"><b>Revisa la edad.</b> El valor introducido no es válido,
+      así que el plan se generó con ${a.age} años. Una edad equivocada cambia las cargas.</div>`);
   if(plan.band.note) nb.push(`<div class="note-box"><b>Edad.</b> ${plan.band.note}</div>`);
   if(plan.tr.note)   nb.push(`<div class="note-box"><b>Experiencia.</b> ${plan.tr.note}</div>`);
   if(a.prog) nb.push(`<div class="note-box"><b>Sobrecarga progresiva activa.</b> Añade series por encima del
@@ -994,6 +1090,7 @@ function renderCoach(){
   if(plan.gates.length){
     nb.push(`<div class="note-box acc"><b>Filtro de fiabilidad.</b> ` + plan.gates.map(g=>
       g.ratio ? `H:Q ${g.asym.toFixed(2)} lado ${g.side} — ${g.v==="real"?"por debajo de 1.00":"adecuado"}`
+      : g.v==="incompleto" ? `${g.n}: medición incompleta — <b>no se usó</b>`
       : `${g.n}: asimetría ${g.asym.toFixed(1)}% vs CV propio ${g.cvv.toFixed(1)}% — <b>${g.v}</b>`
     ).join(" · ") + `</div>`);
   }
@@ -1058,9 +1155,18 @@ function showAthlete(p){
          <span class="quality">${d.q}</span>`));
       if(d.G||!d.e.length) w.appendChild(el("div","rest",d.r||"Descanso."));
       else d.e.forEach(x=>{
-        const e=byId(x.i); if(!e) return;
+        const e=byId(x.i);
+        if(!e){
+          /* An id that no longer exists (an older link after a bank change)
+             must show something, not silently vanish. */
+          const miss=el("div","ex");
+          miss.innerHTML='<span></span><span class="nm">Ejercicio no disponible</span>'+
+            '<span class="load">'+esc(x.l||"")+'</span>'+
+            '<span class="cue">Pídele a tu entrenador que te reenvíe el plan.</span>';
+          w.appendChild(miss); return;
+        }
         const row=el("div","ex");
-        const mu=(x.u)||mediaFor(e.id).url;
+        const mu=safeUrl(x.u)||mediaFor(e.id).url;
         const vid=ytId(mu);
         row.innerHTML=`${fig(e.pat,e.id)}
           <span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}${vid
@@ -1134,7 +1240,15 @@ $("newA").onclick=()=>{
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=""; });
   setRoute("gen"); gameDays=[5]; initDays(); drawRoster();
 };
-$("delA").onclick=()=>{if(sel===null)return;store.splice(sel,1);sel=null;save();drawRoster();};
+$("delA").onclick=()=>{
+  if(sel===null) return;
+  const n=store[sel].name;
+  if(!confirm("¿Eliminar a "+n+"? No se puede deshacer.")) return;
+  store.splice(sel,1); sel=null; save(); drawRoster();
+  /* Leaving the deleted athlete in the form meant the next Generar re-created
+     them at the end of the roster. */
+  $("newA").click();
+};
 $("gen").onclick=renderCoach;
 
 /* Row controls in the generated week. Delegated so regenerating the week
@@ -1164,7 +1278,7 @@ $("week").addEventListener("click",ev=>{
     if(v===null) return;
     const t=v.trim();
     if(!t){ delete OVERRIDES[ex]; }
-    else if(/^https?:\/\//i.test(t)){ OVERRIDES[ex]=t; }
+    else if(safeUrl(t)){ OVERRIDES[ex]=t; }
     else { alert("La liga debe empezar con http:// o https://"); return; }
     saveOverrides();
   }
@@ -1220,8 +1334,8 @@ $("impFile").onchange=e=>{
       let added=0,updated=0;
       list.forEach(a=>{
         if(!a||!a.name) return;
-        const i=store.findIndex(x=>x.name===a.name);
-        if(i>=0){store[i]=a;updated++;} else {store.push(a);added++;}
+        const i=store.findIndex(x=>(a.id&&x.id===a.id)||(!a.id&&x.name===a.name));
+        if(i>=0){store[i]=a;updated++;} else {if(!a.id)a.id=newId();store.push(a);added++;}
       });
       if(d.media&&typeof d.media==="object"){
         Object.assign(OVERRIDES,d.media); saveOverrides();
@@ -1249,8 +1363,8 @@ function route_(){
       let added=0,updated=0;
       list.forEach(a=>{
         if(!a||!a.name) return;
-        const i=store.findIndex(x=>x.name===a.name);
-        if(i>=0){store[i]=a;updated++;}else{store.push(a);added++;}
+        const i=store.findIndex(x=>(a.id&&x.id===a.id)||(!a.id&&x.name===a.name));
+        if(i>=0){store[i]=a;updated++;}else{if(!a.id)a.id=newId();store.push(a);added++;}
       });
       save(); drawRoster();
       history.replaceState(null,"",location.pathname);
@@ -1260,7 +1374,9 @@ function route_(){
   }
   if(!h.startsWith("#a=")) return;
   const p=dec(h.slice(3));
-  if(p&&p.d&&p.d.length){ showAthlete(p); return; }
+  const valid = p && Array.isArray(p.d) && p.d.length &&
+    p.d.every(x=>x&&Array.isArray(x.e)) && Array.isArray(p.g);
+  if(valid){ showAthlete(p); return; }
   /* A broken or truncated link must not drop an athlete into the coach tool. */
   $("coachView").classList.add("hidden");
   $("athView").classList.remove("hidden");
