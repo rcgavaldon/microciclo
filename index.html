@@ -204,6 +204,19 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
   .g4,.g3{grid-template-columns:1fr 1fr}
   .share{flex-wrap:wrap}
 }
+.logrow{grid-column:1/-1;display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap}
+.logrow input{width:74px;padding:4px 6px;font-size:11.5px;text-align:right}
+.logrow .lk{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted)}
+.logrow .done{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--accent)}
+.ex.logged{box-shadow:inset 3px 0 0 var(--accent)}
+.sendbar{display:flex;gap:8px;align-items:center;padding:12px 15px;background:var(--sunk);
+  border-top:1px solid var(--rule);flex-wrap:wrap}
+.sendbar .hint{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);flex:1;min-width:180px}
+.day.today{background:var(--accent-soft)}
+.todaytag{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--btn-ink);background:var(--accent);
+  padding:2px 6px;border-radius:2px}
 .rest{padding:10px 15px 12px 15px;font-size:13px;color:var(--muted);font-style:italic}
 
 .strip{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
@@ -1314,7 +1327,17 @@ function showAthlete(p){
             : `<a href="${esc(mu)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
           <span class="load">${esc(x.l)}</span>
           <span class="cue">${esc(x.d)} — ${esc(e.cue)}</span>
-          ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}`;
+          ${e.caution?`<span class="warn"><span>\u26a0</span><span>${esc(e.caution)}</span></span>`:""}
+          <span class="logrow">
+            <span class="lk">Peso usado</span>
+            <input type="number" inputmode="decimal" min="0" max="500" step="0.5"
+              data-log="${esc(d.y)}|${esc(x.i)}" placeholder="kg" value="${esc(logGet(d.y,x.i))}">
+            <span class="lk">Series hechas</span>
+            <input type="number" inputmode="numeric" min="0" max="20"
+              data-set="${esc(d.y)}|${esc(x.i)}" placeholder="\u2014" value="${esc(logGet(d.y,x.i,"s"))}">
+            <span class="done" data-ok="${esc(d.y)}|${esc(x.i)}"></span>
+          </span>`;
+        if(logGet(d.y,x.i)||logGet(d.y,x.i,"s")) row.classList.add("logged");
         w.appendChild(row);
       });
       node.appendChild(w);
@@ -1322,6 +1345,35 @@ function showAthlete(p){
   };
   document.querySelectorAll(".tierBtn").forEach(b=>b.onclick=()=>{tier=b.dataset.tier;draw();});
   draw();
+  LOGKEY="mc.log."+planStamp(p);
+  bindLogging($("avWeek"),p.n);
+  /* Mark today so the athlete knows what he is doing right now. */
+  const jsDay=new Date().getDay();            /* 0 = Sunday */
+  const todayName=DAYSL[(jsDay+6)%7];
+  $("avWeek").querySelectorAll(".day").forEach(d=>{
+    const nm=d.querySelector(".dayname");
+    if(nm&&nm.textContent===todayName){
+      d.classList.add("today");
+      nm.insertAdjacentHTML("afterend",'<span class="todaytag">hoy</span>');
+    }
+  });
+  /* Send-to-coach bar */
+  const bar=el("div","sendbar");
+  bar.innerHTML='<span class="hint">'+(STORAGE_OK
+      ? 'Apunta el peso que usaste. Se guarda en este tel\u00e9fono. Guarda este enlace para volver.'
+      : 'Este navegador no guarda datos. \u00c1brelo en Chrome o Safari, o copia tus pesos antes de cerrar.')+
+    '</span>'+
+    '<button class="ghost" id="sendCoach">Copiar para el entrenador</button>';
+  $("avWeek").parentNode.appendChild(bar);
+  $("sendCoach").onclick=()=>{
+    const txt=buildSummary(p.n);
+    if(!txt){ alert("Todav\u00eda no has apuntado ning\u00fan peso."); return; }
+    const done=()=>{ $("sendCoach").textContent="Copiado";
+      setTimeout(()=>$("sendCoach").textContent="Copiar para el entrenador",1800); };
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(done,()=>prompt("Copia este texto:",txt));
+    else prompt("Copia este texto:",txt);
+  };
   $("avFoot").innerHTML=`Si algo te duele —no molestia muscular, sino dolor— no lo hagas y avísale a tu entrenador.
     Este plan complementa tu entrenamiento de equipo; no lo reemplaza.`;
 }
@@ -1365,6 +1417,78 @@ function frameFor(id){
   return `<iframe src="https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1"
     title="Demostración del ejercicio" loading="lazy" allowfullscreen
     allow="accelerometer; encrypted-media; picture-in-picture"></iframe>`;
+}
+
+/* What the athlete actually lifted. Stored on their own device -- there is no
+   server -- and shared with the coach as a plain WhatsApp message they send
+   themselves, so nothing leaves the phone without them doing it. */
+let LOGKEY="mc.log";
+/* A new plan must start with empty boxes. Key the log by a short hash of the
+   plan itself, so last week's numbers never appear against this week's work,
+   and re-opening the SAME link keeps what was already entered. */
+function planStamp(p){
+  let h=5381;
+  const str=(p.n||"")+"|"+(p.d||[]).map(d=>d.m+d.e.map(x=>x.i+x.l).join("")).join("|");
+  for(let i=0;i<str.length;i++){h=((h<<5)+h+str.charCodeAt(i))|0;}
+  return "w"+(h>>>0).toString(36);
+}
+/* WhatsApp and Instagram in-app browsers can hand back a localStorage that
+   throws or silently drops writes. Find out once, up front. */
+const STORAGE_OK=(function(){
+  try{ localStorage.setItem("mc.t","1"); const v=localStorage.getItem("mc.t");
+       localStorage.removeItem("mc.t"); return v==="1"; }
+  catch(e){ return false; }
+})();
+let MEMLOG={};   /* fallback when the browser will not persist */
+function logAll(){
+  if(!STORAGE_OK) return MEMLOG;
+  try{return JSON.parse(localStorage.getItem(LOGKEY)||"{}");}catch(e){return {};}
+}
+function logGet(day,ex,kind){
+  const a=logAll()[LOGKEY+"|"+day+"|"+ex];
+  if(!a) return "";
+  return (kind==="s"?a.s:a.w)||"";
+}
+function logSet(day,ex,kind,val){
+  const all=logAll(), k=LOGKEY+"|"+day+"|"+ex;
+  const rec=all[k]||{};
+  rec[kind]=val;
+  if(!rec.w&&!rec.s) delete all[k]; else all[k]=rec;
+  if(!STORAGE_OK){ MEMLOG=all; return false; }
+  try{ localStorage.setItem(LOGKEY,JSON.stringify(all)); }
+  catch(e){ MEMLOG=all; return false; }
+  return true;
+}
+function bindLogging(root,athleteName){
+  root.addEventListener("input",ev=>{
+    const t=ev.target;
+    const key=t.dataset.log||t.dataset.set; if(!key) return;
+    const [day,ex]=key.split("|");
+    const okSave=logSet(day,ex,t.dataset.log?"w":"s",t.value.trim());
+    const row=t.closest(".ex");
+    const filled=!!(logGet(day,ex)||logGet(day,ex,"s"));
+    if(row) row.classList.toggle("logged",filled);
+    const mark=row&&row.querySelector('[data-ok]');
+    if(mark) mark.textContent=okSave?(filled?"guardado":""):"no se pudo guardar";
+  });
+}
+function buildSummary(name){
+  const all=logAll(); const lines=[];
+  document.querySelectorAll("#avWeek .day").forEach(dayEl=>{
+    const day=dayEl.querySelector(".dayname").textContent;
+    const rows=[...dayEl.querySelectorAll(".ex")].filter(r=>r.classList.contains("logged"));
+    if(!rows.length) return;
+    lines.push(day+":");
+    rows.forEach(r=>{
+      const nm=r.querySelector(".nm").textContent.replace(/ver$|cerrar$|buscar$/,"").trim();
+      const w=r.querySelector("[data-log]").value.trim();
+      const st=r.querySelector("[data-set]").value.trim();
+      lines.push("  - "+nm+(w?" "+w+" kg":"")+(st?" x"+st+" series":""));
+    });
+  });
+  if(!lines.length) return "";
+  return name+" - registro de la semana"+String.fromCharCode(10)+
+    lines.join(String.fromCharCode(10));
 }
 
 /* ───────────── boot ───────────── */
