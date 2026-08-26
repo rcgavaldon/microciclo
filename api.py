@@ -143,7 +143,7 @@ def api():
             cur["_ath"] = ath
         _write(p, cur)
         vol.commit()
-        return {"ok": True, "n": len(cur) - 1}
+        return {"ok": True, "n": sum(1 for k in cur if not k.startswith("_"))}
 
     # The athlete's most recent logged weight per exercise, across every past
     # plan of theirs. The app's block progression holds the load flat while
@@ -191,7 +191,7 @@ def api():
                 if fn.endswith(".json"):
                     rec = _read(os.path.join(d, fn), {})
                     out.append({"plan": fn[:-5], "upd": rec.get("_upd", 0),
-                                "n": max(0, len(rec) - 1)})
+                                "n": sum(1 for k in rec if not k.startswith("_"))})
         out.sort(key=lambda r: -r["upd"])
         return {"logs": out[:200]}
 
