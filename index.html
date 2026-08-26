@@ -127,7 +127,12 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 .ex .cue{grid-column:2/-1;font-family:"IBM Plex Mono",monospace;font-size:10px;
   color:var(--muted);line-height:1.5}
 .ex .cue b{color:var(--hot);font-weight:600}
-.ex .cue i{color:var(--warn);font-style:normal}
+/* Safety warnings must not read as coaching cues — own line, own colour, own mark */
+.ex .warn{grid-column:2/-1;display:flex;gap:6px;align-items:flex-start;
+  font-family:"IBM Plex Mono",monospace;font-size:10px;line-height:1.5;
+  color:var(--warn);background:var(--warn-soft);border-left:2px solid var(--warn);
+  padding:5px 8px;border-radius:0 2px 2px 0;margin-top:4px}
+.ex .warn span:first-child{flex:none;font-weight:600}
 .rest{padding:10px 15px 12px 15px;font-size:13px;color:var(--muted);font-style:italic}
 
 .strip{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
@@ -170,7 +175,11 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 <div class="cols">
   <div>
     <section class="panel">
-      <div class="hd"><h2>Atletas</h2><button class="ghost" id="newA">+ Nuevo</button></div>
+      <div class="hd"><h2>Atletas</h2><span style="display:flex;gap:6px">
+        <button class="ghost" id="expA" title="Descargar copia de seguridad">Exportar</button>
+        <button class="ghost" id="impA" title="Restaurar desde archivo">Importar</button>
+        <button class="ghost" id="newA">+ Nuevo</button></span></div>
+      <input type="file" id="impFile" accept="application/json" style="display:none">
       <div class="roster" id="roster"></div>
     </section>
 
@@ -322,8 +331,15 @@ const FIG={
  carry:'<circle cx="24" cy="9" r="4"/><path d="M24 13v14M24 27l-4 11M24 27l4 11M17 19h14M14 19v6M34 19v6"/>',
  calf:'<circle cx="24" cy="9" r="4"/><path d="M24 13v13M24 26v10M18 36h12M20 36l-2 4h12l-2-4"/><path d="M34 22v-6M31 19l3-3 3 3" opacity=".55"/>'
 };
-const fig=p=>`<svg class="fig" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FIG[p]||FIG.brace}</svg>`;
+/* A few movements are badly served by their generic pattern glyph and get
+   their own drawing, keyed by exercise id. */
+const FIGID={
+ nordic:'<circle cx="30" cy="15" r="4"/><path d="M27 18l-9 8M18 26l-6 6M18 26v8M14 34h12M30 19l-6 9"/><path d="M12 38h24" opacity=".55"/>',
+ copen:'<circle cx="9" cy="26" r="4"/><path d="M13 26h13l8-6M26 26l6 8M34 20h6M30 34h8"/><path d="M6 32h32" opacity=".4"/>',
+ "hip-airplane":'<circle cx="14" cy="14" r="4"/><path d="M18 16l14 6M32 22v14M28 36h8M32 22l-9 2M23 24l-6 12"/><path d="M8 20h6M36 14h6" opacity=".5"/>'
+};
+const fig=(p,id)=>`<svg class="fig" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(id&&FIGID[id])||FIG[p]||FIG.brace}</svg>`;
 
 /* ───────────── exercise bank ─────────────
    Names are Mexican / Latin American usage, verified against LatAm sources
@@ -670,7 +686,15 @@ function gateOne(pfx){
 /* ───────────── state ───────────── */
 let store=load(), sel=null, route="gen", gameDays=[5], current=null;
 function load(){try{const r=localStorage.getItem("mc.v1");return r?JSON.parse(r):[];}catch(e){return [];}}
-function save(){try{localStorage.setItem("mc.v1",JSON.stringify(store));}catch(e){}}
+function save(){
+  try{ localStorage.setItem("mc.v1",JSON.stringify(store)); saveWarned=false; }
+  catch(e){
+    /* Private browsing or a full quota loses the roster silently otherwise. */
+    if(!saveWarned){ saveWarned=true;
+      alert("No se pudo guardar en este navegador. Usa Exportar para no perder a tus atletas."); }
+  }
+}
+let saveWarned=false;
 
 function initPos(){
   $("fPos").innerHTML=Object.keys(POS).map(k=>`<option value="${k}">${POS[k].es}</option>`).join("");
@@ -784,9 +808,10 @@ function renderWeek(node,plan,tier,athlete){
       d.ex.forEach(e=>{
         const nm=e.tiers[tier]||e.es;
         const row=el("div","ex");
-        row.innerHTML=`${fig(e.pat)}<span class="nm">${esc(nm)}</span>
+        row.innerHTML=`${fig(e.pat,e.id)}<span class="nm">${esc(nm)}</span>
           <span class="load">${e.load}</span>
-          <span class="cue">${e.detail} — ${esc(e.cue)}${e.caution?` <i>⚠ ${esc(e.caution)}</i>`:""}</span>`;
+          <span class="cue">${e.detail} — ${esc(e.cue)}</span>
+          ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}`;
         w.appendChild(row);
       });
     }
@@ -886,9 +911,10 @@ function showAthlete(p){
       else d.e.forEach(x=>{
         const e=byId(x.i); if(!e) return;
         const row=el("div","ex");
-        row.innerHTML=`${fig(e.pat)}<span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}</span>
+        row.innerHTML=`${fig(e.pat,e.id)}<span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}</span>
           <span class="load">${esc(x.l)}</span>
-          <span class="cue">${esc(x.d)} — ${esc(e.cue)}${e.caution?` <i>⚠ ${esc(e.caution)}</i>`:""}</span>`;
+          <span class="cue">${esc(x.d)} — ${esc(e.cue)}</span>
+          ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}`;
         w.appendChild(row);
       });
       node.appendChild(w);
@@ -908,6 +934,36 @@ $("newA").onclick=()=>{sel=null;$("fName").value="Jugador Nuevo";$("fProg").chec
   gameDays=[5];initDays();drawRoster();};
 $("delA").onclick=()=>{if(sel===null)return;store.splice(sel,1);sel=null;save();drawRoster();};
 $("gen").onclick=renderCoach;
+$("expA").onclick=()=>{
+  const blob=new Blob([JSON.stringify({v:1,atletas:store},null,1)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="microciclo-atletas.json";
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$("impA").onclick=()=>$("impFile").click();
+$("impFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      const list=Array.isArray(d)?d:d.atletas;
+      if(!Array.isArray(list)) throw new Error("formato");
+      /* Merge by name so re-importing a backup does not duplicate a roster. */
+      let added=0,updated=0;
+      list.forEach(a=>{
+        if(!a||!a.name) return;
+        const i=store.findIndex(x=>x.name===a.name);
+        if(i>=0){store[i]=a;updated++;} else {store.push(a);added++;}
+      });
+      save(); sel=null; drawRoster();
+      alert(`Importado: ${added} nuevo(s), ${updated} actualizado(s).`);
+    }catch(err){ alert("Ese archivo no es una copia válida de Microciclo."); }
+    e.target.value="";
+  };
+  rd.readAsText(f);
+};
 $("copyBtn").onclick=()=>{const i=$("shareUrl");if(!i.value)return;
   i.select();navigator.clipboard.writeText(i.value).then(()=>{
     $("copyBtn").textContent="Copiado";setTimeout(()=>$("copyBtn").textContent="Copiar enlace",1600);});};
