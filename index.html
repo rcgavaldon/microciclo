@@ -123,6 +123,15 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
 .ex .fig{grid-row:span 2;width:44px;height:44px;color:var(--muted);opacity:.85}
 .fig .pa,.fig .pb{animation:figflip 1.9s steps(1,end) infinite}
 .fig .pb{animation-name:figflipb}
+/* Without a stagger all the figures on a page flip on the same beat, which
+   reads as a glitch rather than as movement. */
+.ex:nth-child(7n+1) .fig g{animation-delay:0s}
+.ex:nth-child(7n+2) .fig g{animation-delay:-.27s}
+.ex:nth-child(7n+3) .fig g{animation-delay:-.54s}
+.ex:nth-child(7n+4) .fig g{animation-delay:-.81s}
+.ex:nth-child(7n+5) .fig g{animation-delay:-1.08s}
+.ex:nth-child(7n+6) .fig g{animation-delay:-1.35s}
+.ex:nth-child(7n+7) .fig g{animation-delay:-1.62s}
 @keyframes figflip{0%,48%{opacity:1}50%,100%{opacity:0}}
 @keyframes figflipb{0%,48%{opacity:0}50%,100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){
