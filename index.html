@@ -176,11 +176,16 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
   <div>
     <section class="panel">
       <div class="hd"><h2>Atletas</h2><span style="display:flex;gap:6px">
+        <button class="ghost" id="lnkA" title="Enlace con toda tu lista">Enlace de respaldo</button>
         <button class="ghost" id="expA" title="Descargar copia de seguridad">Exportar</button>
         <button class="ghost" id="impA" title="Restaurar desde archivo">Importar</button>
         <button class="ghost" id="newA">+ Nuevo</button></span></div>
       <input type="file" id="impFile" accept="application/json" style="display:none">
       <div class="roster" id="roster"></div>
+      <div class="share" id="backupBar" style="display:none">
+        <input id="backupUrl" readonly>
+        <button class="ghost" id="copyBackup">Copiar</button>
+      </div>
     </section>
 
     <section class="panel" id="formPanel">
@@ -941,6 +946,16 @@ $("expA").onclick=()=>{
   a.download="microciclo-atletas.json";
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 };
+$("lnkA").onclick=()=>{
+  if(!store.length){alert("Agrega al menos un atleta primero.");return;}
+  const u=location.origin+location.pathname+"#r="+enc({v:1,atletas:store});
+  $("backupUrl").value=u; $("backupBar").style.display="flex"; $("backupUrl").select();
+};
+$("copyBackup").onclick=()=>{
+  const i=$("backupUrl"); if(!i.value) return;
+  i.select(); navigator.clipboard.writeText(i.value).then(()=>{
+    $("copyBackup").textContent="Copiado"; setTimeout(()=>$("copyBackup").textContent="Copiar",1600);});
+};
 $("impA").onclick=()=>$("impFile").click();
 $("impFile").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -971,6 +986,24 @@ $("printBtn").onclick=()=>window.print();
 
 function route_(){
   const h=location.hash;
+  if(h.startsWith("#r=")){
+    const d=dec(h.slice(3));
+    const list=d&&(Array.isArray(d)?d:d.atletas);
+    if(Array.isArray(list)&&list.length){
+      /* Merge rather than replace — opening a backup link on a device that
+         already has athletes must not wipe them. */
+      let added=0,updated=0;
+      list.forEach(a=>{
+        if(!a||!a.name) return;
+        const i=store.findIndex(x=>x.name===a.name);
+        if(i>=0){store[i]=a;updated++;}else{store.push(a);added++;}
+      });
+      save(); drawRoster();
+      history.replaceState(null,"",location.pathname);
+      alert(`Lista cargada: ${added} nuevo(s), ${updated} actualizado(s).`);
+    } else alert("Ese enlace de respaldo no se pudo leer.");
+    return;
+  }
   if(!h.startsWith("#a=")) return;
   const p=dec(h.slice(3));
   if(p&&p.d&&p.d.length){ showAthlete(p); return; }
