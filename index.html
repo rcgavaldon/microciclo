@@ -754,10 +754,13 @@ function doseFor(e,band,tr,prog,prof,proFlags){
   if(e.id==="accel")  return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Recuperación completa"};
   if(e.id==="hill")   return {load:`${clamp(prof.speed+3,4,6)} × 25 m`,detail:"Baja caminando"};
   if(e.id==="askip")  return {load:"3 × 15 m",detail:"Técnica, sin fatiga"};
-  if(e.pat==="sprint") return {load:"4 × 20 m",detail:"Calidad sobre volumen"};
   if(e.id==="bike")   return {load:"12 min",detail:"Conversacional"};
   if(e.id==="rondo")  return {load:"8 min",detail:"Volumen bajo"};
   if(e.id==="mobility")return{load:"6 min",detail:"Sin prisa"};
+  /* Fallback for any running work without its own case. Must come after the
+     id-specific rules — the rondo is tagged as a sprint pattern and was
+     picking up "4 x 20 m" instead of its own duration. */
+  if(e.pat==="sprint") return {load:"4 × 20 m",detail:"Calidad sobre volumen"};
   if(e.pat==="brace"||e.pat==="isometric")
     return {load:`${sets} × ${e.uni?"25 s/lado":"30 s"}`,detail:"Calidad sobre tiempo"};
   if(e.id==="nordic"){
