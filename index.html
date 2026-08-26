@@ -46,6 +46,8 @@ input,select,.mono,.tag,textarea{font-family:"IBM Plex Mono",ui-monospace,Menlo,
 header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
   border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:22px}
 .brand h1{font-size:clamp(24px,3.2vw,34px);font-weight:700;letter-spacing:-.02em;margin:0}
+.house{font-family:"Archivo",sans-serif;font-size:11px;font-weight:700;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:6px}
 .brand .sub{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--muted);margin-top:5px}
 .top .meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
@@ -190,6 +192,19 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .ex.dropped{opacity:.4}
 .ex.dropped .nm{text-decoration:line-through}
 @media(max-width:560px){
+  header.top{align-items:flex-start}
+  .top .meta{text-align:left;width:100%}
+  .g2{grid-template-columns:1fr}
+  .days{gap:4px}
+  .days button{padding:11px 1px;font-size:10px}
+  .seg button{font-size:10px;padding:10px 4px}
+  .codeBar,.share{flex-direction:column;align-items:stretch}
+  .share input{min-width:0;width:100%}
+  .rw{padding:11px 12px}
+  .strip .sb{flex:1 1 50%}
+  .ovlbox{max-height:92vh}
+  .ovlbd{font-size:14px}
+  .logrow input{width:64px}
   .wrap{padding:16px 12px 60px}
   .ex{grid-template-columns:64px 1fr;gap:2px 9px;padding:9px 12px}
   .thumb{width:64px;height:36px;grid-row:span 1}
@@ -237,6 +252,21 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .note-box.acc{border-color:var(--accent);background:var(--accent-soft)}
 .note-box b{font-family:"Archivo",sans-serif}
 
+.ovl{position:fixed;inset:0;background:rgba(10,14,13,.62);z-index:90;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.ovl.hidden{display:none}
+.ovlbox{background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.ovlhd{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--rule)}
+.ovlhd h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.ovlbd{padding:16px;overflow-y:auto;font-size:14.5px;line-height:1.6}
+.ovlbd ol{margin:0 0 14px;padding-left:20px}
+.ovlbd li{margin-bottom:9px}
+.ovlbd b{font-family:"Archivo",sans-serif}
+.ovlbd .k{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--sunk);
+  padding:1px 5px;border-radius:2px}
 .foot{margin-top:28px;padding-top:16px;border-top:1px solid var(--rule);
   font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);
   line-height:1.75;max-width:78ch}
@@ -260,7 +290,9 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 <header class="top">
   <div class="brand"><h1>Microciclo</h1>
     <div class="sub">Planificación semanal por día de partido</div></div>
-  <div class="meta" id="coachMeta">v0.3</div>
+  <div class="meta" id="coachMeta">
+    <button class="ghost" id="helpBtn">? Ayuda</button>
+  </div>
 </header>
 
 <div class="cols">
@@ -407,11 +439,23 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 <div class="foot" id="foot"></div>
 </div>
 
+<!-- ══════════════ HELP / INTRO ══════════════ -->
+<div id="ovl" class="ovl hidden" role="dialog" aria-modal="true" aria-labelledby="ovlTitle">
+  <div class="ovlbox">
+    <div class="ovlhd"><h2 id="ovlTitle">C\u00f3mo funciona</h2>
+      <button class="ghost" id="ovlX">Cerrar</button></div>
+    <div class="ovlbd" id="ovlBody"></div>
+  </div>
+</div>
+
 <!-- ══════════════ ATHLETE ══════════════ -->
 <div class="wrap hidden" id="athView">
   <header class="top">
-    <div class="brand"><h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
+    <div class="brand">
+      <div class="house">SL&nbsp;Therapy</div>
+      <h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
     <div class="meta noprint">
+      <button class="ghost" id="helpBtnA" style="margin-bottom:8px">? C\u00f3mo se usa</button>
       <div class="seg" style="min-width:230px">
         <button data-tier="gym" class="tierBtn">Gimnasio</button>
         <button data-tier="hotel" class="tierBtn">Hotel</button>
@@ -1412,6 +1456,7 @@ function showAthlete(p){
   /* Pull anything already logged from another device, then redraw over it. */
   if(LOGCODE) pullLog().then(okd=>{ if(okd) draw(); });
   bindLogging($("avWeek"),p.n);
+  if(!seenIntro("mc.seen.ath")) setTimeout(()=>showHelp("ath"),400);
   /* Mark today so the athlete knows what he is doing right now. */
   const jsDay=new Date().getDay();            /* 0 = Sunday */
   const todayName=DAYSL[(jsDay+6)%7];
@@ -1441,7 +1486,7 @@ function showAthlete(p){
       navigator.clipboard.writeText(txt).then(done,()=>prompt("Copia este texto:",txt));
     else prompt("Copia este texto:",txt);
   };
-  $("avFoot").innerHTML=`Si algo te duele —no molestia muscular, sino dolor— no lo hagas y avísale a tu entrenador.
+  $("avFoot").innerHTML=`Plan preparado por <b>SL Therapy</b>.<br><br>Si algo te duele —no molestia muscular, sino dolor— no lo hagas y avísale a tu entrenador.
     Este plan complementa tu entrenamiento de equipo; no lo reemplaza.`;
 }
 
@@ -1600,6 +1645,52 @@ function buildSummary(name){
     lines.join(String.fromCharCode(10));
 }
 
+/* Help, and the first-run introduction. Shown automatically the first time
+   someone opens either side, and reachable from the button after that. */
+const HELP_COACH=`
+<ol>
+  <li><b>Agrega un atleta.</b> Toca <span class="k">+ Nuevo</span>, pon nombre, edad,
+      posici\u00f3n y los d\u00edas de partido. Eso \u00faltimo es lo que ordena la semana.</li>
+  <li><b>Elige la ruta.</b> <span class="k">Generalizado</span> no necesita mediciones.
+      <span class="k">Con an\u00e1lisis</span> usa tus n\u00fameros reales (plataforma, NordBord,
+      H:Q, sprints, GPS).</li>
+  <li><b>Genera la semana.</b> El d\u00eda m\u00e1s fuerte cae en M4, cuatro d\u00edas antes del
+      partido \u2014 no en el d\u00eda m\u00e1s lejano, porque a\u00fan se est\u00e1 recuperando del anterior.</li>
+  <li><b>Ajusta lo que quieras.</b> Cada ejercicio tiene
+      <span class="k">carga</span>, <span class="k">cambiar</span>, <span class="k">video</span> y
+      <span class="k">quitar</span>.</li>
+  <li><b>Manda el enlace.</b> <span class="k">Copiar enlace</span> y por WhatsApp. El jugador
+      ve su semana, los videos y apunta el peso que us\u00f3.</li>
+  <li><b>Revisa lo que reportaron</b> en el panel de abajo.</li>
+</ol>
+<p><b>Tu c\u00f3digo</b> es lo que conecta todo. Gu\u00e1rdalo: con \u00e9l recuperas tu lista
+en cualquier tel\u00e9fono o computadora. No lo compartas \u2014 quien lo tenga ve tus atletas.</p>`;
+
+const HELP_ATH=`
+<ol>
+  <li><b>Mira el d\u00eda marcado <span class="k">hoy</span></b>. Eso es lo que te toca.</li>
+  <li><b>Toca la imagen</b> de cualquier ejercicio y el video se abre aqu\u00ed mismo.</li>
+  <li><b>Apunta el peso</b> que usaste y las series que hiciste. Se guarda solo y le llega
+      a tu entrenador.</li>
+  <li><b>\u00bfSin gimnasio?</b> Usa los botones de arriba: <span class="k">Hotel</span> o
+      <span class="k">Sin equipo</span> cambian los ejercicios sin perder el objetivo.</li>
+  <li><b>Guarda este enlace.</b> Es tu plan de la semana.</li>
+</ol>
+<p>Si algo te <b>duele</b> \u2014 no molestia muscular, dolor \u2014 no lo hagas y avisa a tu
+entrenador.</p>`;
+
+function showHelp(which){
+  $("ovlBody").innerHTML = which==="ath" ? HELP_ATH : HELP_COACH;
+  $("ovlTitle").textContent = which==="ath" ? "C\u00f3mo usar tu plan" : "C\u00f3mo funciona";
+  $("ovl").classList.remove("hidden");
+  $("ovlX").focus();
+}
+function hideHelp(){ $("ovl").classList.add("hidden"); }
+function seenIntro(k){
+  try{ if(localStorage.getItem(k)) return true; localStorage.setItem(k,"1"); return false; }
+  catch(e){ return true; }   /* no storage: do not nag on every load */
+}
+
 /* ───────────── boot ───────────── */
 initPos(); initDays(); drawRoster(); setRoute("gen");
 if($("coachCode")){
@@ -1613,10 +1704,16 @@ if($("coachCode")){
     CODE=v; try{localStorage.setItem("mc.code",v);}catch(e){}
     pullRoster().then(pushRoster);
   };
+  if(!seenIntro("mc.seen.coach")) setTimeout(()=>showHelp("coach"),400);
   if(CODE) pullRoster();
   else setSync("elige un c\u00f3digo para guardar en la nube");
 }
 bindPlayers($("week")); bindPlayers($("avWeek"));
+$("ovlX").onclick=hideHelp;
+$("ovl").addEventListener("click",e=>{ if(e.target===$("ovl")) hideHelp(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") hideHelp(); });
+if($("helpBtn"))  $("helpBtn").onclick=()=>showHelp("coach");
+if($("helpBtnA")) $("helpBtnA").onclick=()=>showHelp("ath");
 $("rGen").onclick=()=>setRoute("gen");
 $("rPro").onclick=()=>setRoute("pro");
 $("newA").onclick=()=>{
@@ -1785,6 +1882,20 @@ function route_(){
       d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
         e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail}))}))});
     return;
+  }
+  /* The coach's own workspace link. A long random token in the URL is bearer
+     access: whoever holds the link holds the data, so it is not for sharing.
+     It replaces a guessable self-chosen code. */
+  if(h.startsWith("#c=")){
+    const tok=h.slice(3).trim();
+    if(/^[A-Za-z0-9_-]{8,64}$/.test(tok)){
+      CODE=tok;
+      try{localStorage.setItem("mc.code",tok);}catch(e){}
+      if($("coachCode")) $("coachCode").value=tok;
+      history.replaceState(null,"",location.pathname);
+      pullRoster();
+      return;
+    }
   }
   if(h.startsWith("#r=")){
     const d=dec(h.slice(3));
