@@ -332,6 +332,7 @@ const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==u
 const nv=id=>{const e=$(id);if(!e)return 0;const v=parseFloat(e.value);return isFinite(v)?v:0;};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const DAYS=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+const PRO_IDS=["cmjL0","cmjL1","cmjL2","cmjR0","cmjR1","cmjR2","norL0","norL1","norL2","norR0","norR1","norR2","ehL","cqL","ehR","cqR","s10","s20","s30","sq1rm","refDist","refHsr","refSpr","refAcc"];
 const DAYSL=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 
 /* ───────────── figures ───────────── */
@@ -491,7 +492,7 @@ const BANK=[
  caution:"Nunca corras de bajada: la fase excéntrica del descenso es la que lesiona."},
 {id:"sprint",es:"Sprint lanzado",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:9,
  tiers:{gym:"20 m de entrada y 20 m al 95-100%, recuperación completa",
-        hotel:"En campo abierto cercano: 30 m progresivos",bodyweight:"En campo abierto: 30 m progresivos"},
+        hotel:"Sprint lanzado en campo abierto cercano",bodyweight:"Sprint lanzado en campo abierto"},
  cue:"Relaja cara y hombros, deja que corra.",
  caution:"Exposición necesaria pero de riesgo alto: calentamiento completo, lejos del partido, sin fatiga acumulada."},
 {id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
@@ -591,7 +592,7 @@ function ageBand(a){
     note:"16&ndash;18: se introduce carga progresiva. El excéntrico se progresa despacio."};
   if(a<30) return {k:"adult",rir:2,ecc:true,maxInt:"high",note:""};
   return {k:"vet",rir:3,ecc:true,maxInt:"high",
-    note:"30+: se prioriza recuperación. Menos volumen, misma intensidad."};
+    note:"30+: se prioriza recuperación. Menos volumen total y más días fáciles."};
 }
 function trainBand(t){
   /* reps use a literal en dash — these strings are escaped on the athlete's
@@ -634,7 +635,14 @@ const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
  speed:"Especificidad y velocidad",strength:"Fuerza y carga mecánica",
  taper:"Descarga y velocidad breve",primer:"Activación",game:"Partido"};
 
-function pickFor(focus,prof,band,tier,sex,proFlags){
+/* One rule for what may be trained on a given match-day slot. Used by
+   the generator AND the swap picker so an edit cannot bypass it. */
+function legalOn(e,label){
+  if(!label||label==="MD") return false;
+  if(label==="MD+1"||label==="MD+2") return e.int==="low";
+  return e.md.indexOf(label)>=0;
+}
+function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
   const need=id=>{const e=byId(id);return e&&e.tiers[tier];};
   /* Three tiers of priority. The minute budget fills `must` before `core`
      and `core` before `extra`, so protective work is never what gets cut
@@ -672,11 +680,9 @@ function pickFor(focus,prof,band,tier,sex,proFlags){
   let ids=[...must,...core,...extra];
 
   if(!band.ecc) ids=ids.filter(i=>i!=="nordic");
-  ids=[...new Set(ids)].filter(need).filter(i=>{
-    const e=byId(i);
-    const label=focus==="game"?"MD":Object.keys(QUAL).find(k=>QUAL[k].focus===focus);
-    return !label||label==="MD"||e.md.includes(label);
-  });
+  /* Under-16 athletes never see high-intensity work, whatever the day. */
+  if(band.maxInt!=="high") ids=ids.filter(i=>byId(i)&&byId(i).int!=="high");
+  ids=[...new Set(ids)].filter(need).filter(i=>legalOn(byId(i),mdLabel));
   return ids.map(byId);
 }
 
@@ -687,6 +693,10 @@ function doseFor(e,band,tr,prog,prof,proFlags){
   if(e.pat==="jump"||e.pat==="bound") return {load:`${sets} × 5`,detail:`Descanso 60 s`};
   if(e.id==="sprint") return {load:`${clamp(prof.speed+2,3,6)} × 20 m`,detail:"Descanso completo 3 min"};
   if(e.id==="sled")   return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Descanso 90 s"};
+  if(e.id==="accel")  return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Recuperación completa"};
+  if(e.id==="hill")   return {load:`${clamp(prof.speed+3,4,6)} × 25 m`,detail:"Baja caminando"};
+  if(e.id==="askip")  return {load:"3 × 15 m",detail:"Técnica, sin fatiga"};
+  if(e.pat==="sprint") return {load:"4 × 20 m",detail:"Calidad sobre volumen"};
   if(e.id==="bike")   return {load:"12 min",detail:"Conversacional"};
   if(e.id==="rondo")  return {load:"8 min",detail:"Volumen bajo"};
   if(e.id==="mobility")return{load:"6 min",detail:"Sin prisa"};
@@ -698,7 +708,7 @@ function doseFor(e,band,tr,prog,prof,proFlags){
       detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
   }
   if(prog){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
-  if(proFlags.limb&&e.uni) extra=` · lado ${proFlags.limbSide} +1 serie`;
+  if(proFlags.limb&&e.uni) extra+=` · lado ${proFlags.limbSide} +1 serie`;
   return {load:`${sets}${e.uni?"/lado":""} × ${reps}`,detail:`RIR ${rir}${extra}`};
 }
 
@@ -766,7 +776,8 @@ function fill(a){
   $("fTa").value=a.ta; $("fTier").value=a.tier; $("fProg").checked=!!a.prog;
   $("fNor").value=a.nor||1;
   gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
-  if(a.pro) Object.keys(a.pro).forEach(k=>{if($(k))$(k).value=a.pro[k];});
+  /* Blank every measurement not present on this athlete, so nothing carries over from whoever was selected before. */
+  PRO_IDS.forEach(k=>{ if($(k)) $(k).value=(a.pro&&a.pro[k]!==undefined)?a.pro[k]:""; });
 }
 function readForm(){
   const pro={};
@@ -810,7 +821,7 @@ function build(a){
   const days=map.map(m=>{
     if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
-    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags);
+    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,m.md);
     let budget=45, ex=[], seen=new Set();
     for(const e of picks){
       /* two exercises can collapse to the same movement once substituted
@@ -825,7 +836,7 @@ function build(a){
     }
     /* Coach overrides are applied after generation so the engine stays the
        source of truth and an edit never silently changes another day. */
-    const ed=(a.edits&&a.edits[m.md])||{};
+    const ed=(a.edits&&a.edits[m.d])||{};
     ex=ex.filter(x=>!(ed[x.id]&&ed[x.id].drop));
     ex=ex.map(x=>{
       const o=ed[x.id]; if(!o) return x;
@@ -837,7 +848,7 @@ function build(a){
       }
       return o.load?{...x,load:o.load,detail:x.detail+" · ajustado"}:x;
     });
-    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
+    return {md:m.md,di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
             mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
   });
   return {a,days,gates,band,tr,proFlags};
@@ -867,10 +878,10 @@ function renderWeek(node,plan,tier,athlete){
           <span class="cue">${e.detail} — ${esc(e.cue)}</span>
           ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}
           <span class="rowbtns">
-            <button data-act="load" data-day="${d.md}" data-ex="${e.id}">carga</button>
-            <button data-act="swap" data-day="${d.md}" data-ex="${e.id}">cambiar</button>
-            <button data-act="vid"  data-day="${d.md}" data-ex="${e.id}">video</button>
-            <button data-act="drop" data-day="${d.md}" data-ex="${e.id}">quitar</button>
+            <button data-act="load" data-day="${d.di}" data-ex="${e.id}">carga</button>
+            <button data-act="swap" data-day="${d.di}" data-ex="${e.id}">cambiar</button>
+            <button data-act="vid"  data-day="${d.di}" data-ex="${e.id}">video</button>
+            <button data-act="drop" data-day="${d.di}" data-ex="${e.id}">quitar</button>
           </span>`;
         w.appendChild(row);
       });
@@ -881,7 +892,14 @@ function renderWeek(node,plan,tier,athlete){
 
 function renderCoach(){
   const a=readForm();
-  if(sel!==null){ store[sel]=a; }
+  if(sel!==null && store[sel] && store[sel].name!==a.name){
+    /* Typing a new name over a selected athlete used to rename them
+       silently, losing the original. Make it an explicit choice. */
+    const rename=confirm("Vas a cambiar el nombre de \""+store[sel].name+
+      "\" a \""+a.name+"\".\n\nAceptar = renombrar a ese atleta.\nCancelar = crear uno nuevo.");
+    if(rename){ store[sel]=a; } else { store.push(a); sel=store.length-1; }
+  }
+  else if(sel!==null){ store[sel]=a; }
   else {
     /* Generating twice without picking an athlete used to create duplicates,
        and the placeholder name got saved as a real athlete. Match on name. */
@@ -926,7 +944,8 @@ function renderCoach(){
      from the bank on the athlete's side. Keeps the link short enough to send. */
   const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,
     d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
-      e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail,u:mediaFor(x.id).url}))}))};
+      e:d.ex.map(x=>{const o=OVERRIDES[x.id];
+        return o?{i:x.id,l:x.load,d:x.detail,u:o}:{i:x.id,l:x.load,d:x.detail};})}))};
   const url=location.origin+location.pathname+"#a="+enc(payload);
   $("shareUrl").value=url;
   $("shareUrl").title=url.length+" caracteres";
@@ -1000,8 +1019,14 @@ function showAthlete(p){
 initPos(); initDays(); drawRoster(); setRoute("gen");
 $("rGen").onclick=()=>setRoute("gen");
 $("rPro").onclick=()=>setRoute("pro");
-$("newA").onclick=()=>{sel=null;$("fName").value="Jugador Nuevo";$("fProg").checked=false;
-  gameDays=[5];initDays();drawRoster();};
+$("newA").onclick=()=>{
+  sel=null;
+  $("fName").value="Jugador Nuevo"; $("fProg").checked=false;
+  $("fAge").value=18; $("fSex").value="m"; $("fHt").value=175;
+  $("fWt").value=71; $("fTa").value=2; $("fTier").value="gym"; $("fNor").value=1;
+  PRO_IDS.forEach(k=>{ if($(k)) $(k).value=""; });
+  setRoute("gen"); gameDays=[5]; initDays(); drawRoster();
+};
 $("delA").onclick=()=>{if(sel===null)return;store.splice(sel,1);sel=null;save();drawRoster();};
 $("gen").onclick=renderCoach;
 
@@ -1011,6 +1036,8 @@ $("week").addEventListener("click",ev=>{
   const b=ev.target.closest("button[data-act]"); if(!b||sel===null) return;
   const a=store[sel]; if(!a) return;
   const {act,day,ex}=b.dataset;
+  const dayRow=b.closest('.day');
+  const mdLabel=dayRow?dayRow.querySelector('.md').textContent.trim():'';
   a.edits=a.edits||{}; a.edits[day]=a.edits[day]||{};
   const cur=a.edits[day][ex]=a.edits[day][ex]||{};
   const e=byId(ex);
@@ -1037,7 +1064,7 @@ $("week").addEventListener("click",ev=>{
   if(act==="swap"){
     /* Only offer exercises legal for this day, so an edit cannot put
        high-eccentric work next to the match. */
-    const legal=BANK.filter(x=>x.id!==ex&&(day.startsWith("MD")||x.md.includes(day)));
+    const legal=BANK.filter(x=>x.id!==ex&&legalOn(x,mdLabel));
     const NL=String.fromCharCode(10);
     const list=legal.map((x,i)=>`${i+1}. ${x.es}`).join(NL);
     const pick=prompt(`Cambiar ${e?e.es:ex} por:
@@ -1057,7 +1084,7 @@ Número (vacío = deshacer)`,"");
   save(); renderCoach();
 });
 $("expA").onclick=()=>{
-  const blob=new Blob([JSON.stringify({v:1,atletas:store},null,1)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify({v:1,atletas:store,media:OVERRIDES},null,1)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
   a.download="microciclo-atletas.json";
@@ -1089,6 +1116,9 @@ $("impFile").onchange=e=>{
         const i=store.findIndex(x=>x.name===a.name);
         if(i>=0){store[i]=a;updated++;} else {store.push(a);added++;}
       });
+      if(d.media&&typeof d.media==="object"){
+        Object.assign(OVERRIDES,d.media); saveOverrides();
+      }
       save(); sel=null; drawRoster();
       alert(`Importado: ${added} nuevo(s), ${updated} actualizado(s).`);
     }catch(err){ alert("Ese archivo no es una copia válida de Microciclo."); }
