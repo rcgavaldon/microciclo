@@ -454,10 +454,10 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
             Sin esto, los porcentajes de carga no significan nada.
           </div>
           <div class="g4" style="margin-top:9px">
-            <label class="f"><span>Dist. tot (m)</span><input id="refDist" class="num" type="number"></label>
-            <label class="f"><span>HSR (m)</span><input id="refHsr" class="num" type="number"></label>
-            <label class="f"><span>Sprint (m)</span><input id="refSpr" class="num" type="number"></label>
-            <label class="f"><span>Acc+Dec</span><input id="refAcc" class="num" type="number"></label>
+            <label class="f"><span>Dist. tot (m)</span><input id="refDist" class="num" type="text" inputmode="decimal"></label>
+            <label class="f"><span>HSR (m)</span><input id="refHsr" class="num" type="text" inputmode="decimal"></label>
+            <label class="f"><span>Sprint (m)</span><input id="refSpr" class="num" type="text" inputmode="decimal"></label>
+            <label class="f"><span>Acc+Dec</span><input id="refAcc" class="num" type="text" inputmode="decimal"></label>
           </div>
         </div>
 
@@ -529,6 +529,12 @@ const $=id=>document.getElementById(id);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
 const nv=id=>{const e=$(id);if(!e)return 0;const v=parseFloat(e.value);return isFinite(v)?v:0;};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+/* "6800, 7100 6900" -> 6900. His §3: the reference is the MEDIAN of 3-5
+   full matches, per variable -- a single typed value still works. */
+const medOf=v=>{const a=String(v==null?"":v).split(/[,;\s]+/).map(Number)
+  .filter(x=>isFinite(x)&&x>0).sort((x,y)=>x-y);
+  if(!a.length) return 0; const m=a.length>>1;
+  return a.length%2?a[m]:(a[m-1]+a[m])/2;};
 /* Bilingual UI. Lessons carried over from the Sofia language work:
    - Never machine-translate domain terms. What practitioners actually say wins,
      which is why CMJ, sprint, hip thrust, RIR, RPE, sRPE and NordBord stay in
@@ -688,210 +694,214 @@ const fig=(p,id)=>{
    never easier. Set-and-rep counts are NOT baked into these names — the dose
    engine computes those from age, training age and the athlete's own data. */
 const BANK=[
-{id:"back-squat",es:"Sentadilla con barra",pat:"squat",uni:false,int:"high",md:["M5","M4"],min:9,
+{id:"back-squat",es:"Sentadilla con barra",pat:"squat",uni:false,int:"high",md:["MD-5","MD-4","MD-3"],min:9,
  tiers:{gym:"Sentadilla con barra en rack",hotel:"Sentadilla goblet pesada, 3s de bajada y 2s de pausa",
         bodyweight:"Sentadilla a una pierna a la silla (skater), 3s de bajada"},
  cue:"Rodillas afuera, pecho firme, empuja el piso."},
-{id:"trapbar",es:"Peso muerto con barra hexagonal",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:9,
+{id:"trapbar",es:"Peso muerto con barra hexagonal",pat:"hinge",uni:false,int:"high",md:["MD-5","MD-4","MD-3"],min:9,
  tiers:{gym:"Peso muerto con barra hexagonal",hotel:"Peso muerto con mancuernas a los costados",
         bodyweight:"Bisagra de cadera a una pierna, 3s de bajada, brazos arriba"},
  cue:"Empuja el piso con los pies, espalda larga."},
 {id:"spanish-squat",es:"Sentadilla española isométrica",pat:"isometric",uni:false,int:"low",
- md:["M5","M4","M3","M2","M1"],min:5,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:5,
  tiers:{gym:"Sentadilla española con liga gruesa anclada al rack",
         hotel:"Sentadilla española con liga anclada al marco de la puerta",
         bodyweight:"Sentadilla isométrica en pared a 90 grados"},
  cue:"Tronco vertical, aprieta el cuádriceps sin soltar."},
-{id:"rdl",es:"Peso muerto rumano",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:8,
+{id:"rdl",es:"Peso muerto rumano",pat:"hinge",uni:false,int:"high",md:["MD-5","MD-4"],min:8,
  tiers:{gym:"Peso muerto rumano con barra, 3s de bajada",hotel:"Peso muerto rumano con mancuernas, 4s de bajada",
         bodyweight:"PM rumano a una pierna, 4s de bajada y 2s de pausa abajo"},
  cue:"Lleva la cadera atrás, siente el jalón atrás del muslo.",
  caution:"Carga excéntrica alta en isquiotibiales: no dentro de las 48 h previas al partido."},
-{id:"bulgara",es:"Sentadilla búlgara",pat:"lunge",uni:true,int:"high",md:["M5","M4"],min:8,
+{id:"bulgara",es:"Sentadilla búlgara",pat:"lunge",uni:true,int:"high",md:["MD-5","MD-4","MD-3"],min:8,
  tiers:{gym:"Sentadilla búlgara con barra o mancuernas",hotel:"Sentadilla búlgara con mancuernas, pie de atrás en la banca",
         bodyweight:"Búlgara con el pie de atrás en la cama, 3s de bajada y 2s de pausa"},
  cue:"Todo el peso en el pie de adelante.",
  caution:"Genera mucho dolor muscular tardío: entra con pocas series y sube el volumen a lo largo de 3 semanas."},
-{id:"reverse-lunge",es:"Desplante hacia atrás",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+{id:"reverse-lunge",es:"Desplante hacia atrás",pat:"lunge",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:6,
  tiers:{gym:"Desplante hacia atrás con barra",hotel:"Desplante hacia atrás con mancuernas",
         bodyweight:"Desplante hacia atrás desde un escalón con pausa de 2s"},
  cue:"Baja controlado, la rodilla de atrás casi toca."},
-{id:"lateral-lunge",es:"Desplante lateral",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+{id:"lateral-lunge",es:"Desplante lateral",pat:"lunge",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:6,
  tiers:{gym:"Desplante lateral con barra o mancuernas",hotel:"Desplante lateral tipo goblet con mancuerna",
         bodyweight:"Desplante lateral deslizando con toalla, 3s de apertura"},
  cue:"Cadera atrás, el pie que estira apunta al frente."},
-{id:"step-up",es:"Subida al cajón",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3","M2"],min:6,
+{id:"step-up",es:"Subida al cajón",pat:"lunge",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3","MD-2"],min:6,
  tiers:{gym:"Subida al cajón con barra, altura de la rodilla",hotel:"Subida a la banca con mancuernas",
         bodyweight:"Subida lenta a la silla, 3s de bajada, sin impulso del pie de abajo"},
  cue:"No te impulses con el pie de abajo."},
-{id:"slrdl",es:"Peso muerto rumano a una pierna",pat:"hinge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+{id:"slrdl",es:"Peso muerto rumano a una pierna",pat:"hinge",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:6,
  tiers:{gym:"PM rumano a una pierna con barra o pesa rusa",hotel:"PM rumano a una pierna con mancuerna contralateral",
         bodyweight:"PM rumano a una pierna tocando el piso, 3s de bajada"},
  cue:"Cadera cerrada y pareja, no gires el tronco."},
-{id:"nordic",es:"Curl nórdico de isquiotibiales",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:6,
+{id:"nordic",es:"Curl nórdico de isquiotibiales",pat:"hinge",uni:false,int:"high",md:["MD-5","MD-4"],min:6,
  tiers:{gym:"Curl nórdico en banco nórdico o con compañero",hotel:"Curl nórdico asistido con liga anclada arriba y atrás",
         bodyweight:"Pies enganchados bajo la cama, frenando con las manos"},
  cue:"Baja lo más lento posible con la cadera extendida.",
- caution:"Dolor muscular severo si se progresa rápido. Sigue el protocolo por semanas. Nunca en M2 ni M1."},
-{id:"slider-curl",es:"Curl de isquiotibiales con toalla",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+ caution:"Dolor muscular severo si se progresa rápido. Sigue el protocolo por semanas. Nunca en MD-2 ni MD-1."},
+{id:"slider-curl",es:"Curl de isquiotibiales con toalla",pat:"bridge",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Curl de isquiotibiales en balón suizo desde el puente",hotel:"Curl de piernas con toalla en el piso",
         bodyweight:"Curl de una pierna con toalla sobre piso liso"},
  cue:"Cadera arriba todo el rango, no la dejes caer.",
  caution:"Si aparece calambre en el isquiotibial, reduce el rango o vuelve a la versión bilateral."},
-{id:"hipthrust",es:"Hip thrust (empuje de cadera)",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:7,
+{id:"hipthrust",es:"Hip thrust (empuje de cadera)",pat:"bridge",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3"],min:7,
  tiers:{gym:"Hip thrust con barra apoyado en banca",hotel:"Hip thrust con mancuerna, hombros sobre la banca",
         bodyweight:"Hip thrust a una pierna con hombros en la cama, 2s arriba"},
  cue:"Esconde las costillas y aprieta el glúteo arriba."},
 {id:"hamiso",es:"Puente isométrico de isquiotibiales a una pierna",pat:"bridge",uni:true,int:"low",
- md:["M5","M4","M3","M2","M1"],min:4,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Talón sobre cajón, puente a una pierna",hotel:"Talón sobre la banca, puente a una pierna",
         bodyweight:"Talón sobre una silla, puente a una pierna"},
  cue:"Jala el talón contra el apoyo, cadera nivelada."},
-{id:"copen",es:"Plancha de Copenhague",pat:"isometric",uni:true,int:"moderate",md:["M5","M4"],min:5,
+{id:"copen",es:"Plancha de Copenhague",pat:"isometric",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Copenhague completa con el tobillo sobre la banca",hotel:"Copenhague de palanca corta con la rodilla en la banca",
         bodyweight:"Copenhague con el pie en una silla y la pierna de abajo apoyada"},
  cue:"Jala con la pierna de arriba, cadera alta y alineada.",
  caution:"Empieza con palanca corta y pocas series. Progresa la palanca antes que el tiempo."},
 {id:"adductor-squeeze",es:"Isométrico de aductores",pat:"isometric",uni:false,int:"low",
- md:["M5","M4","M3","M2","M1"],min:4,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Compresión de aductores boca arriba a 45 y 90 grados",hotel:"Aprieta una toalla enrollada entre las rodillas",
         bodyweight:"Aprieta el puño entre las rodillas, esfuerzo progresivo"},
  cue:"Aprieta progresivo, sin dolor en el pubis.",
  caution:"Si reproduce dolor en pubis o ingle, detén y valora antes de cargar aductores."},
 {id:"lateral-walk",es:"Caminata lateral con liga",pat:"brace",uni:false,int:"low",
- md:["M5","M4","M3","M2","M1"],min:4,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Caminata lateral con liga en media sentadilla",hotel:"Caminata lateral con miniliga por el pasillo",
         bodyweight:"Abducción de cadera acostado de lado, 3s de sostén"},
  cue:"Pasos largos, no dejes caer la rodilla hacia adentro."},
-{id:"hip-airplane",es:"Avión de cadera",pat:"hinge",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+{id:"hip-airplane",es:"Avión de cadera",pat:"hinge",uni:true,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Avión de cadera sujetándose del rack",hotel:"Avión de cadera con una mano en la banca",
         bodyweight:"Avión de cadera con una mano en la pared"},
  cue:"Gira desde la cadera, el tronco firme como tabla."},
-{id:"pogo",es:"Saltos pogo",pat:"jump",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+{id:"pogo",es:"Saltos pogo",pat:"jump",uni:false,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Saltos pogo sobre una línea o valla baja",hotel:"Saltos pogo en el lugar, manos en la cadera",
         bodyweight:"Saltos pogo a una pierna en el lugar"},
  cue:"Tobillo duro, contacto corto, rodilla casi recta."},
 {id:"cmj",es:"Salto con contramovimiento (CMJ)",pat:"jump",uni:false,int:"moderate",
- md:["M5","M4","M3","M2","M1"],min:3,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:3,
  tiers:{gym:"CMJ sobre tapete de salto con retroalimentación",hotel:"CMJ con brazos, máxima intención",
         bodyweight:"Salto desde pausa de 2s abajo"},
  cue:"Salta con toda la intención y aterriza suave."},
-{id:"box-jump",es:"Salto al cajón",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2","M1"],min:4,
+{id:"box-jump",es:"Salto al cajón",pat:"jump",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Salto al cajón bajando caminando",hotel:"Salto a la banca bajando caminando",
         bodyweight:"Salto horizontal con aterrizaje firme"},
  cue:"Baja caminando, nunca brinques de regreso al piso.",
  caution:"Bajar saltando agrega carga excéntrica innecesaria y es donde ocurren la mayoría de los accidentes."},
-{id:"bound",es:"Salto lateral de patinador",pat:"bound",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
+{id:"bound",es:"Salto lateral de patinador",pat:"bound",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Salto lateral sobre una línea con aterrizaje sostenido 2s",
         hotel:"Salto lateral con aterrizaje sostenido, miniliga opcional",
         bodyweight:"Salto lateral aterrizando y sosteniendo 3s"},
  cue:"Aterriza y congélate, rodilla alineada al pie."},
-{id:"depth-jump",es:"Salto en profundidad",pat:"jump",uni:false,int:"high",md:["M4","M3"],min:5,
+{id:"depth-jump",es:"Salto en profundidad",pat:"jump",uni:false,int:"high",md:["MD-4","MD-3"],min:5,
  tiers:{gym:"Salto en profundidad desde cajón de 30-40 cm",hotel:"Caída desde la banca con rebote inmediato",
         bodyweight:"Saltos repetidos con rebote inmediato y contacto mínimo"},
  cue:"Contacto corto, rebota como resorte.",
- caution:"Carga muy alta en tendón rotuliano y aquíleo. Sólo con base de fuerza previa. Nunca en M2 ni M1."},
-{id:"askip",es:"Técnica de carrera",pat:"sprint",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+ caution:"Carga muy alta en tendón rotuliano y aquíleo. Sólo con base de fuerza previa. Nunca en MD-2 ni MD-1."},
+{id:"askip",es:"Técnica de carrera",pat:"sprint",uni:false,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:3,
  tiers:{gym:"Marcha A, skipping A y drill de pared en cancha",hotel:"Drill de pared y marcha A en el pasillo",
         bodyweight:"Drill de pared contra el muro del cuarto"},
  cue:"Pisa debajo de la cadera, punta del pie arriba."},
-{id:"accel",es:"Sprint de aceleración",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+{id:"accel",es:"Sprint de aceleración",pat:"sprint",uni:false,int:"high",md:["MD-5","MD-4","MD-3"],min:8,
  tiers:{gym:"Sprints de 10-20 m con salida escalonada, recuperación completa",
         hotel:"Salidas resistidas con liga y compañero, 8-10 m",
         bodyweight:"Salidas en caída al aire libre, 8-10 m"},
  cue:"Empuja el piso hacia atrás, sube gradual.",
  caution:"Sólo tras calentamiento completo. El sprint en frío lesiona isquiotibiales."},
-{id:"sled",es:"Empuje de trineo",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+{id:"sled",es:"Empuje de trineo",pat:"sprint",uni:false,int:"high",md:["MD-5","MD-4","MD-3"],min:8,
  tiers:{gym:"Empuje de trineo al 50-75% del peso corporal",hotel:"Marcha resistida con liga y compañero",
         bodyweight:"Empuje isométrico contra la pared en posición de aceleración"},
  cue:"Tronco inclinado, pasos potentes, no te levantes."},
-{id:"hill",es:"Sprint en cuesta",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+{id:"hill",es:"Sprint en cuesta",pat:"sprint",uni:false,int:"high",md:["MD-5","MD-4","MD-3"],min:8,
  tiers:{gym:"Sprints en cuesta al 8-10%, bajando caminando",hotel:"Caminadora inclinada o rampa de estacionamiento",
         bodyweight:"Sprints de escaleras, bajando caminando"},
  cue:"Zancada corta y potente, mirada al frente.",
  caution:"Nunca corras de bajada: la fase excéntrica del descenso es la que lesiona."},
-{id:"sprint",es:"Sprint lanzado",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:9,
+{id:"tempo",es:"Carrera tempo (HSR)",pat:"sprint",uni:false,int:"moderate",md:["MD-4","MD-3"],min:7,
+ tiers:{gym:"Carrera tempo en cancha o calle",hotel:"Carrera tempo en cancha o calle",
+        bodyweight:"Carrera tempo en cancha o calle"},
+ cue:"Ritmo alto pero controlado, zancada amplia; el descanso es caminar de regreso."},
+{id:"sprint",es:"Sprint lanzado",pat:"sprint",uni:false,int:"high",md:["MD-4","MD-3","MD-2"],min:9,
  tiers:{gym:"20 m de entrada y 20 m al 95-100%, recuperación completa",
         hotel:"Sprint lanzado en campo abierto cercano",bodyweight:"Sprint lanzado en campo abierto"},
  cue:"Relaja cara y hombros, deja que corra.",
  caution:"Exposición necesaria pero de riesgo alto: calentamiento completo, lejos del partido, sin fatiga acumulada."},
-{id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+{id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Press Pallof en polea en media rodilla",hotel:"Press Pallof con liga anclada a la puerta",
         bodyweight:"Plancha lateral de palanca larga con el brazo extendido"},
  cue:"No dejes que el tronco gire, respira normal."},
-{id:"deadbug",es:"Dead bug",pat:"brace",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+{id:"deadbug",es:"Dead bug",pat:"brace",uni:false,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:3,
  tiers:{gym:"Dead bug sosteniendo liga o polea por encima",hotel:"Dead bug sosteniendo una mancuerna ligera arriba",
         bodyweight:"Dead bug a 3s por repetición"},
  cue:"Espalda baja pegada al piso, exhala al estirar."},
-{id:"carry",es:"Caminata con maleta",pat:"carry",uni:true,int:"moderate",md:["M5","M4","M3","M2"],min:4,
+{id:"carry",es:"Caminata con maleta",pat:"carry",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3","MD-2"],min:4,
  tiers:{gym:"Caminata con pesa rusa a un costado",hotel:"Caminata con mancuerna por el pasillo",
         bodyweight:"Caminata con la maleta de viaje cargada"},
  cue:"Hombros parejos, no te inclines hacia la carga."},
-{id:"pushup",es:"Press horizontal",pat:"push",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+{id:"pushup",es:"Press horizontal",pat:"push",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Press de banca con barra o mancuernas",hotel:"Press en piso o inclinado con mancuernas",
         bodyweight:"Lagartijas con pies elevados, 3s de bajada"},
  cue:"Costillas abajo, aprieta glúteos, cuerpo como tabla."},
-{id:"row",es:"Jalón horizontal",pat:"pull",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+{id:"row",es:"Jalón horizontal",pat:"pull",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Dominadas o remo con barra",hotel:"Remo a una mano con mancuerna sobre la banca",
         bodyweight:"Remo invertido bajo una mesa firme"},
  cue:"Jala con el codo, no con la mano."},
-{id:"calf",es:"Elevación de talones de pie",pat:"calf",uni:false,int:"moderate",md:["M5","M4","M3"],min:4,
+{id:"calf",es:"Elevación de talones de pie",pat:"calf",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3"],min:4,
  tiers:{gym:"Elevación de talones de pie desde un escalón, 3s de bajada",
         hotel:"Elevación de talones a una pierna con mancuerna",
         bodyweight:"Elevación de talones a una pierna en la escalera, 3s arriba y abajo"},
  cue:"Sube todo lo que puedas, baja lento y completo."},
 {id:"soleus",es:"Elevación de talones sentado (sóleo)",pat:"calf",uni:false,int:"low",
- md:["M5","M4","M3","M2","M1"],min:4,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Elevación de talones en máquina sentado",hotel:"Elevación de talones sentado con mancuerna en la rodilla",
         bodyweight:"Elevación de talones sentado con la maleta sobre las rodillas"},
  cue:"Rodilla doblada a 90 grados, empuja con la punta."},
 {id:"balance",es:"Equilibrio a una pierna con pie corto",pat:"isometric",uni:true,int:"low",
- md:["M5","M4","M3","M2","M1"],min:4,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Equilibrio a una pierna sobre colchoneta con pases de balón",
         hotel:"Equilibrio a una pierna sobre una almohada con ojos cerrados",
         bodyweight:"Equilibrio a una pierna en el piso, ojos cerrados, pie corto activo"},
  cue:"Tres puntos del pie firmes, arco activo."},
 /* Goalkeeping. Outfield percentages do not transfer: the demands are dives,
    jumps, short explosive displacement and upper body, not running volume. */
-{id:"gk-dive",es:"Ca\u00edda lateral con bal\u00f3n",pat:"bound",uni:true,int:"high",md:["M5","M4","M3"],min:8,
+{id:"gk-dive",es:"Ca\u00edda lateral con bal\u00f3n",pat:"bound",uni:true,int:"high",md:["MD-5","MD-4","MD-3"],min:8,
  tiers:{gym:"Ca\u00edda lateral sobre colchoneta con bal\u00f3n",hotel:"Ca\u00edda lateral sobre colchoneta",
         bodyweight:"Ca\u00edda lateral sobre c\u00e9sped, sin bal\u00f3n"},
  cue:"Cae sobre el costado, no sobre el codo ni la cadera.",
  caution:"Alto impacto. Sobre superficie blanda y s\u00f3lo con t\u00e9cnica de ca\u00edda aprendida."},
 {id:"gk-shuffle",es:"Desplazamiento lateral de portero",pat:"sprint",uni:false,int:"moderate",
- md:["M5","M4","M3","M2"],min:6,
+ md:["MD-5","MD-4","MD-3","MD-2"],min:6,
  tiers:{gym:"Desplazamiento lateral entre conos",hotel:"Desplazamiento lateral entre marcas",
         bodyweight:"Desplazamiento lateral entre marcas"},
  cue:"Pies siempre bajo la cadera, nunca cruces las piernas."},
-{id:"gk-getup",es:"Levantada r\u00e1pida",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2"],min:5,
+{id:"gk-getup",es:"Levantada r\u00e1pida",pat:"jump",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3","MD-2"],min:5,
  tiers:{gym:"Levantada r\u00e1pida del suelo a posici\u00f3n base",
         bodyweight:"Levantada r\u00e1pida desde el suelo",hotel:"Levantada r\u00e1pida desde el suelo"},
  cue:"Del suelo a posici\u00f3n base sin apoyar las dos manos."},
-{id:"gk-reactive",es:"Reacci\u00f3n con bal\u00f3n",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2","M1"],min:6,
+{id:"gk-reactive",es:"Reacci\u00f3n con bal\u00f3n",pat:"jump",uni:false,int:"moderate",md:["MD-4","MD-3","MD-2","MD-1"],min:6,
  tiers:{gym:"Reacci\u00f3n a bal\u00f3n lanzado desde corta distancia",
         hotel:"Reacci\u00f3n a bal\u00f3n contra la pared",bodyweight:"Reacci\u00f3n a bal\u00f3n contra la pared"},
  cue:"Ojos en el bal\u00f3n, manos primero."},
-{id:"gk-jump",es:"Salto con recepci\u00f3n",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2"],min:5,
+{id:"gk-jump",es:"Salto con recepci\u00f3n",pat:"jump",uni:false,int:"moderate",md:["MD-5","MD-4","MD-3","MD-2"],min:5,
  tiers:{gym:"Salto vertical con recepci\u00f3n y ca\u00edda",hotel:"Salto vertical con recepci\u00f3n",
         bodyweight:"Salto vertical con ca\u00edda suave"},
  cue:"Aterriza con las dos piernas, rodillas alineadas."},
-{id:"gk-throw",es:"Saque largo",pat:"push",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
+{id:"gk-throw",es:"Saque largo",pat:"push",uni:true,int:"moderate",md:["MD-5","MD-4","MD-3"],min:5,
  tiers:{gym:"Saque largo con bal\u00f3n medicinal",hotel:"Lanzamiento con bal\u00f3n medicinal",
         bodyweight:"Lanzamiento de bal\u00f3n contra la pared"},
  cue:"Rota desde la cadera, no s\u00f3lo con el brazo."},
-{id:"gk-grip",es:"Fuerza de agarre y mu\u00f1eca",pat:"carry",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+{id:"gk-grip",es:"Fuerza de agarre y mu\u00f1eca",pat:"carry",uni:true,int:"low",md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:4,
  tiers:{gym:"Agarre con mancuerna y extensiones de mu\u00f1eca",
         hotel:"Agarre con mancuerna",bodyweight:"Agarre con toalla y flexiones de mu\u00f1eca"},
  cue:"Aprieta fuerte, controla la bajada."},
 /* recovery and football-specific items */
 {id:"mobility",es:"Movilidad de cadera y tobillo",pat:"isometric",uni:false,int:"low",
- md:["M5","M4","M3","M2","M1"],min:6,
+ md:["MD-5","MD-4","MD-3","MD-2","MD-1"],min:6,
  tiers:{gym:"Circuito de movilidad",hotel:"Circuito de movilidad",bodyweight:"Circuito de movilidad"},
  cue:"Sin prisa. Respira en cada posición."},
-{id:"bike",es:"Bici suave",pat:"isometric",uni:false,int:"low",md:["M5"],min:12,
+{id:"bike",es:"Bici suave",pat:"isometric",uni:false,int:"low",md:["MD-5"],min:12,
  tiers:{gym:"Bici estática suave",hotel:"Bici o caminata rápida",bodyweight:"Caminata rápida"},
  cue:"Conversacional. No debe cansarte."},
-{id:"rondo",es:"Rondo con balón",pat:"sprint",uni:false,int:"low",md:["M1"],min:8,
+{id:"rondo",es:"Rondo con balón",pat:"sprint",uni:false,int:"low",md:["MD-1"],min:8,
  tiers:{gym:"Rondo con balón",hotel:"Rondo con balón",bodyweight:"Toque y cambios de dirección suaves"},
  cue:"Ritmo alegre, sin duelos fuertes."}
 ];
@@ -903,7 +913,7 @@ const byId=i=>BANK.find(x=>x.id===i);
    name, which cannot rot the way a specific video can. */
 const MEDIA={
  "gk-dive":{url:"",search:"https://www.youtube.com/results?search_query=caida+lateral+portero+blocaje"}, "gk-shuffle":{url:"",search:"https://www.youtube.com/results?search_query=desplazamiento+lateral+portero+futbol"}, "gk-getup":{url:"",search:"https://www.youtube.com/results?search_query=levantada+rapida+portero+futbol"}, "gk-reactive":{url:"",search:"https://www.youtube.com/results?search_query=ejercicios+de+reaccion+portero"}, "gk-jump":{url:"",search:"https://www.youtube.com/results?search_query=salto+y+recepcion+portero+futbol"}, "gk-throw":{url:"",search:"https://www.youtube.com/results?search_query=saque+largo+portero+tecnica"}, "gk-grip":{url:"",search:"https://www.youtube.com/results?search_query=fuerza+de+agarre+muneca+portero"},
- "back-squat":{url:"https://www.youtube.com/watch?v=1XZ26_VAT0w",search:"https://www.youtube.com/results?search_query=sentadilla+con+barra+tecnica"}, "trapbar":{url:"https://www.youtube.com/watch?v=ngwEa50dG00",search:"https://www.youtube.com/results?search_query=peso+muerto+con+barra+hexagonal+tecnica"}, "spanish-squat":{url:"https://www.youtube.com/watch?v=ue_gcVs4LjA",search:"https://www.youtube.com/results?search_query=sentadilla+espanola+isometrica+tecnica"}, "rdl":{url:"https://www.youtube.com/watch?v=TdGndL9bSmo",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+tecnica"}, "bulgara":{url:"https://www.youtube.com/watch?v=R6D9F_fexZU",search:"https://www.youtube.com/results?search_query=sentadilla+bulgara+tecnica"}, "reverse-lunge":{url:"https://www.youtube.com/watch?v=wF96HPOuf7E",search:"https://www.youtube.com/results?search_query=desplante+hacia+atras+tecnica"}, "lateral-lunge":{url:"https://www.youtube.com/watch?v=6A7A8ua-sKQ",search:"https://www.youtube.com/results?search_query=desplante+lateral+tecnica"}, "step-up":{url:"https://www.youtube.com/watch?v=b7G5SbztUn0",search:"https://www.youtube.com/results?search_query=subida+al+cajon+step+up+tecnica"}, "slrdl":{url:"https://www.youtube.com/watch?v=rQ4NZoQ1Xas",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+a+una+pierna+tecnica"}, "nordic":{url:"https://www.youtube.com/watch?v=rfZ-i7erbaY",search:"https://www.youtube.com/results?search_query=curl+nordico+de+isquiotibiales+tecnica"}, "slider-curl":{url:"https://www.youtube.com/watch?v=uHDLEITrSQU",search:"https://www.youtube.com/results?search_query=curl+de+isquiotibiales+con+toalla+tecnica"}, "hipthrust":{url:"https://www.youtube.com/watch?v=3aTb9Megbuo",search:"https://www.youtube.com/results?search_query=hip+thrust+empuje+de+cadera+tecnica"}, "hamiso":{url:"https://www.youtube.com/watch?v=LVOwZhJCQUs",search:"https://www.youtube.com/results?search_query=puente+isometrico+de+isquiotibiales+tecnica"}, "copen":{url:"https://www.youtube.com/watch?v=lBIcQzr-cQs",search:"https://www.youtube.com/results?search_query=plancha+de+copenhague+aductores+tecnica"}, "adductor-squeeze":{url:"https://www.youtube.com/watch?v=T-Ben-ppf6w",search:"https://www.youtube.com/results?search_query=isometrico+de+aductores+tecnica"}, "lateral-walk":{url:"https://www.youtube.com/watch?v=9AHnDT4mqrg",search:"https://www.youtube.com/results?search_query=caminata+lateral+con+liga+tecnica"}, "hip-airplane":{url:"https://www.youtube.com/watch?v=sF1gOC3KoHk",search:"https://www.youtube.com/results?search_query=avion+de+cadera+hip+airplane+tecnica"}, "pogo":{url:"https://www.youtube.com/watch?v=zKqcL6HSTE4",search:"https://www.youtube.com/results?search_query=saltos+pogo+pliometria+tecnica"}, "cmj":{url:"https://www.youtube.com/watch?v=A6QgLSAuZH8",search:"https://www.youtube.com/results?search_query=salto+con+contramovimiento+CMJ+tecnica"}, "box-jump":{url:"https://www.youtube.com/watch?v=d2z2_rRkpAo",search:"https://www.youtube.com/results?search_query=salto+al+cajon+box+jump+tecnica"}, "bound":{url:"https://www.youtube.com/watch?v=T4OLrAlkHfE",search:"https://www.youtube.com/results?search_query=salto+lateral+de+patinador+tecnica"}, "depth-jump":{url:"https://www.youtube.com/watch?v=GeN0S3XCZnM",search:"https://www.youtube.com/results?search_query=salto+en+profundidad+depth+jump+tecnica"}, "askip":{url:"https://www.youtube.com/watch?v=6zrhHyrEorc",search:"https://www.youtube.com/results?search_query=tecnica+de+carrera+skipping+A+tecnica"}, "accel":{url:"https://www.youtube.com/watch?v=GzZjzBm-56k",search:"https://www.youtube.com/results?search_query=sprint+de+aceleracion+salida+tecnica"}, "sled":{url:"https://www.youtube.com/watch?v=_prbhPS0WKg",search:"https://www.youtube.com/results?search_query=empuje+de+trineo+sled+push+tecnica"}, "hill":{url:"https://www.youtube.com/watch?v=6X2mO6A7G-o",search:"https://www.youtube.com/results?search_query=sprint+en+cuesta+tecnica"}, "sprint":{url:"https://www.youtube.com/watch?v=o1CH_YmhvJo",search:"https://www.youtube.com/results?search_query=sprint+lanzado+maxima+velocidad+tecnica"}, "pallof":{url:"https://www.youtube.com/watch?v=o_CxFP4FJhA",search:"https://www.youtube.com/results?search_query=press+pallof+tecnica"}, "deadbug":{url:"https://www.youtube.com/watch?v=6VQZ2JokRtc",search:"https://www.youtube.com/results?search_query=dead+bug+core+tecnica"}, "carry":{url:"https://www.youtube.com/watch?v=3RKKnZhhelE",search:"https://www.youtube.com/results?search_query=caminata+con+maleta+suitcase+carry+tecnica"}, "pushup":{url:"https://www.youtube.com/watch?v=5HL5WY0WVJQ",search:"https://www.youtube.com/results?search_query=lagartijas+flexiones+de+pecho+tecnica"}, "row":{url:"https://www.youtube.com/watch?v=inp7pjrEY1w",search:"https://www.youtube.com/results?search_query=remo+con+mancuerna+tecnica"}, "calf":{url:"https://www.youtube.com/watch?v=aAniiWqBuOY",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+de+pie+tecnica"}, "soleus":{url:"https://www.youtube.com/watch?v=wRRYk709cYk",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+sentado+soleo+tecnica"}, "balance":{url:"https://www.youtube.com/watch?v=Mdx2uAK9-SU",search:"https://www.youtube.com/results?search_query=equilibrio+a+una+pierna+pie+corto+tecnica"}, "mobility":{url:"https://www.youtube.com/watch?v=kILOdHiOZlE",search:"https://www.youtube.com/results?search_query=movilidad+de+cadera+y+tobillo+tecnica"}, "bike":{url:"",search:"https://www.youtube.com/results?search_query=bicicleta+suave+recuperacion+activa+tecnica"}, "rondo":{url:"https://www.youtube.com/watch?v=H2UymCixO_4",search:"https://www.youtube.com/results?search_query=rondo+con+balon+futbol+tecnica"}
+ "back-squat":{url:"https://www.youtube.com/watch?v=1XZ26_VAT0w",search:"https://www.youtube.com/results?search_query=sentadilla+con+barra+tecnica"}, "trapbar":{url:"https://www.youtube.com/watch?v=ngwEa50dG00",search:"https://www.youtube.com/results?search_query=peso+muerto+con+barra+hexagonal+tecnica"}, "spanish-squat":{url:"https://www.youtube.com/watch?v=ue_gcVs4LjA",search:"https://www.youtube.com/results?search_query=sentadilla+espanola+isometrica+tecnica"}, "rdl":{url:"https://www.youtube.com/watch?v=TdGndL9bSmo",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+tecnica"}, "bulgara":{url:"https://www.youtube.com/watch?v=R6D9F_fexZU",search:"https://www.youtube.com/results?search_query=sentadilla+bulgara+tecnica"}, "reverse-lunge":{url:"https://www.youtube.com/watch?v=wF96HPOuf7E",search:"https://www.youtube.com/results?search_query=desplante+hacia+atras+tecnica"}, "lateral-lunge":{url:"https://www.youtube.com/watch?v=6A7A8ua-sKQ",search:"https://www.youtube.com/results?search_query=desplante+lateral+tecnica"}, "step-up":{url:"https://www.youtube.com/watch?v=b7G5SbztUn0",search:"https://www.youtube.com/results?search_query=subida+al+cajon+step+up+tecnica"}, "slrdl":{url:"https://www.youtube.com/watch?v=rQ4NZoQ1Xas",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+a+una+pierna+tecnica"}, "nordic":{url:"https://www.youtube.com/watch?v=rfZ-i7erbaY",search:"https://www.youtube.com/results?search_query=curl+nordico+de+isquiotibiales+tecnica"}, "slider-curl":{url:"https://www.youtube.com/watch?v=uHDLEITrSQU",search:"https://www.youtube.com/results?search_query=curl+de+isquiotibiales+con+toalla+tecnica"}, "hipthrust":{url:"https://www.youtube.com/watch?v=3aTb9Megbuo",search:"https://www.youtube.com/results?search_query=hip+thrust+empuje+de+cadera+tecnica"}, "hamiso":{url:"https://www.youtube.com/watch?v=LVOwZhJCQUs",search:"https://www.youtube.com/results?search_query=puente+isometrico+de+isquiotibiales+tecnica"}, "copen":{url:"https://www.youtube.com/watch?v=lBIcQzr-cQs",search:"https://www.youtube.com/results?search_query=plancha+de+copenhague+aductores+tecnica"}, "adductor-squeeze":{url:"https://www.youtube.com/watch?v=T-Ben-ppf6w",search:"https://www.youtube.com/results?search_query=isometrico+de+aductores+tecnica"}, "lateral-walk":{url:"https://www.youtube.com/watch?v=9AHnDT4mqrg",search:"https://www.youtube.com/results?search_query=caminata+lateral+con+liga+tecnica"}, "hip-airplane":{url:"https://www.youtube.com/watch?v=sF1gOC3KoHk",search:"https://www.youtube.com/results?search_query=avion+de+cadera+hip+airplane+tecnica"}, "pogo":{url:"https://www.youtube.com/watch?v=zKqcL6HSTE4",search:"https://www.youtube.com/results?search_query=saltos+pogo+pliometria+tecnica"}, "cmj":{url:"https://www.youtube.com/watch?v=A6QgLSAuZH8",search:"https://www.youtube.com/results?search_query=salto+con+contramovimiento+CMJ+tecnica"}, "box-jump":{url:"https://www.youtube.com/watch?v=d2z2_rRkpAo",search:"https://www.youtube.com/results?search_query=salto+al+cajon+box+jump+tecnica"}, "bound":{url:"https://www.youtube.com/watch?v=T4OLrAlkHfE",search:"https://www.youtube.com/results?search_query=salto+lateral+de+patinador+tecnica"}, "depth-jump":{url:"https://www.youtube.com/watch?v=GeN0S3XCZnM",search:"https://www.youtube.com/results?search_query=salto+en+profundidad+depth+jump+tecnica"}, "askip":{url:"https://www.youtube.com/watch?v=6zrhHyrEorc",search:"https://www.youtube.com/results?search_query=tecnica+de+carrera+skipping+A+tecnica"}, "accel":{url:"https://www.youtube.com/watch?v=GzZjzBm-56k",search:"https://www.youtube.com/results?search_query=sprint+de+aceleracion+salida+tecnica"}, "sled":{url:"https://www.youtube.com/watch?v=_prbhPS0WKg",search:"https://www.youtube.com/results?search_query=empuje+de+trineo+sled+push+tecnica"}, "hill":{url:"https://www.youtube.com/watch?v=6X2mO6A7G-o",search:"https://www.youtube.com/results?search_query=sprint+en+cuesta+tecnica"}, "sprint":{url:"https://www.youtube.com/watch?v=o1CH_YmhvJo",search:"https://www.youtube.com/results?search_query=sprint+lanzado+maxima+velocidad+tecnica"}, "tempo":{url:"",search:"https://www.youtube.com/results?search_query=carrera+tempo+futbol+resistencia"}, "pallof":{url:"https://www.youtube.com/watch?v=o_CxFP4FJhA",search:"https://www.youtube.com/results?search_query=press+pallof+tecnica"}, "deadbug":{url:"https://www.youtube.com/watch?v=6VQZ2JokRtc",search:"https://www.youtube.com/results?search_query=dead+bug+core+tecnica"}, "carry":{url:"https://www.youtube.com/watch?v=3RKKnZhhelE",search:"https://www.youtube.com/results?search_query=caminata+con+maleta+suitcase+carry+tecnica"}, "pushup":{url:"https://www.youtube.com/watch?v=5HL5WY0WVJQ",search:"https://www.youtube.com/results?search_query=lagartijas+flexiones+de+pecho+tecnica"}, "row":{url:"https://www.youtube.com/watch?v=inp7pjrEY1w",search:"https://www.youtube.com/results?search_query=remo+con+mancuerna+tecnica"}, "calf":{url:"https://www.youtube.com/watch?v=aAniiWqBuOY",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+de+pie+tecnica"}, "soleus":{url:"https://www.youtube.com/watch?v=wRRYk709cYk",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+sentado+soleo+tecnica"}, "balance":{url:"https://www.youtube.com/watch?v=Mdx2uAK9-SU",search:"https://www.youtube.com/results?search_query=equilibrio+a+una+pierna+pie+corto+tecnica"}, "mobility":{url:"https://www.youtube.com/watch?v=kILOdHiOZlE",search:"https://www.youtube.com/results?search_query=movilidad+de+cadera+y+tobillo+tecnica"}, "bike":{url:"",search:"https://www.youtube.com/results?search_query=bicicleta+suave+recuperacion+activa+tecnica"}, "rondo":{url:"https://www.youtube.com/watch?v=H2UymCixO_4",search:"https://www.youtube.com/results?search_query=rondo+con+balon+futbol+tecnica"}
 };
 /* Pull the 11-char id out of a YouTube URL so we can build a privacy-mode
    embed. Anything that is not a YouTube watch/short/youtu.be link returns
@@ -981,40 +991,44 @@ function mdMap(gameDays){
       const f=(g-d+7)%7; if(f>0&&f<fwd) fwd=f;
       const b=(d-g+7)%7; if(b>0&&b<back) back=b;
     }
-    /* The next match outranks the last one inside two days: a day that is
-       both MD+1 and the day before the next game is an activation day, not
-       a recovery day. That inversion put Bici suave the day before a match. */
+    /* Precedence follows his own congested-week template (Dom+Mié shape:
+       "Lunes: recuperación. Martes: activación."): the day before a match is
+       always activation, but MD-2 only holds its taper content when the LAST
+       match is at least two days back -- the old rule put pogo jumps and CMJ
+       on the morning after a game. The alt label runs to MD-6, exactly the
+       "MD+1 / MD-6" dual notation of his table. */
     let md,focus,alt="";
-    if(fwd<=2){ md="M"+fwd; focus=QUAL["M"+fwd].focus; if(back<=2) alt="MD+"+back; }
-    else if(back===1){ md="MD+1"; focus="recover"; alt="M"+Math.min(fwd,5); }
-    else if(back===2){ md="MD+2"; focus="deep"; alt="M"+Math.min(fwd,5); }
-    else { const n=Math.min(fwd,5); md="M"+n; focus=QUAL["M"+n].focus; }
+    if(fwd===1){ md="MD-1"; focus=QUAL["MD-1"].focus; if(back<=2) alt="MD+"+back; }
+    else if(fwd===2&&back>=2){ md="MD-2"; focus=QUAL["MD-2"].focus; if(back<=2) alt="MD+"+back; }
+    else if(back===1){ md="MD+1"; focus="recover"; alt="MD-"+Math.min(fwd,6); }
+    else if(back===2){ md="MD+2"; focus="deep"; alt="MD-"+Math.min(fwd,6); }
+    else { const n=Math.min(fwd,5); md="MD-"+n; focus=QUAL["MD-"+n].focus; }
     out.push({d,md,alt,focus,game:false,fwd,back});
   }
-  /* A congested week has no development day at all, which also silenced the
-     Nordic protocol for anyone playing twice a week. Give the roomiest
-     non-match day a microdose so exposure is maintained. */
+  /* A congested week has no development day, which would silence the Nordic
+     protocol for anyone playing twice a week -- and his doc keeps prevention
+     alive precisely there: "Microdosis de potencia o prevención: MD-3 o
+     MD-2", with the microdose on Friday of his own two-match template (two
+     days after the Wednesday match). So the 1×3 maintenance dose is ADDED to
+     the clearest existing day (≥2 days from both matches) instead of
+     replacing a day; if not even that window exists, the honest note shows. */
   const hasBuild=out.some(o=>o.focus==="strength"||o.focus==="speed");
   if(!hasBuild){
     let best=null;
     out.forEach(o=>{ if(o.game) return;
-      /* Three clear days on BOTH sides. Two days after a match was still
-         inside deep recovery -- the sweep caught the Nordic landing on a day
-         whose own header read MD+2. When no such day exists the week simply
-         has no microdose, and the coach panel says so honestly. */
-      if(o.back<3||o.fwd<3) return;
-      if(!best||o.fwd>best.fwd||(o.fwd===best.fwd&&o.back>best.back)) best=o; });
-    if(best){ best.focus="micro"; }
+      if(o.back<2||o.fwd<2) return;
+      if(!best||o.back>best.back||(o.back===best.back&&o.fwd>best.fwd)) best=o; });
+    if(best){ best.micro=true; }
   }
   return out;
 }
 const QUAL={
  MD:{es:"Partido",focus:"game"},
- M1:{es:"Activación",focus:"primer"},
- M2:{es:"Descarga y velocidad breve",focus:"taper"},
- M3:{es:"Especificidad y velocidad",focus:"speed"},
- M4:{es:"Fuerza y carga mecánica",focus:"strength"},
- M5:{es:"Compensar o desarrollar",focus:"recover"}
+ "MD-1":{es:"Activación",focus:"primer"},
+ "MD-2":{es:"Descarga y velocidad breve",focus:"taper"},
+ "MD-3":{es:"Especificidad y velocidad",focus:"speed"},
+ "MD-4":{es:"Fuerza y carga mecánica",focus:"strength"},
+ "MD-5":{es:"Compensar o desarrollar",focus:"recover"}
 };
 const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
  micro:"Microdosis de mantenimiento",
@@ -1026,6 +1040,10 @@ const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
 function legalOn(e,label){
   if(!label||label==="MD") return false;
   if(label==="MICRO") return e.int!=="high"||e.id==="nordic";
+  /* Compensatory day for whoever did not play: no match fatigue, so speed
+     and jumps are the point -- his "estímulo de velocidad, aceleración y
+     juego". Heavy eccentric hinges stay out of it all the same. */
+  if(label==="COMP") return e.int!=="high"||e.pat==="sprint"||e.pat==="jump";
   if(label==="MD+1") return e.int==="low";
   /* Two days out, moderate work is fine — his own table calls for individual
      or upper-body work here. Restricting to "low" silently deleted half the
@@ -1045,7 +1063,9 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
      are outfield work and have no place in a keeper's week. */
   if(prof.gk){
     const ecc=band.ecc?["nordic"]:[];
-    if(focus==="recover") return finish(["mobility","bike","hamiso","gk-grip"]);
+    if(focus==="recover") return finish(proFlags.comp
+      ?["gk-reactive","gk-shuffle","gk-getup","bound","gk-grip"]
+      :["mobility","bike","hamiso","gk-grip"]);
     if(focus==="deep")    return finish(["mobility","row","pushup","deadbug"]);
     if(focus==="strength")return finish(ecc.concat(["back-squat","gk-dive","hipthrust","gk-throw","copen","gk-grip"]));
     if(focus==="speed")   return finish(["gk-dive","gk-shuffle","gk-getup","gk-reactive","bound","slrdl"]);
@@ -1059,9 +1079,14 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
      when the session runs long — that was backwards in the first version. */
   let must=[], core=[], extra=[];
 
-  if(focus==="recover"){ core=proFlags.comp
-    ? ["askip","accel","bound","mobility","hamiso"]
-    : ["bike","mobility","hamiso","balance"]; }
+  if(focus==="recover"){
+    if(proFlags.comp){
+      /* The player who did not play has no match fatigue to recover from.
+         His compensatory session IS the match he missed: velocity,
+         acceleration and game stimulus -- not jogging drills. */
+      must=["accel","bound"]; core=["sprint","rondo","askip"]; extra=["slrdl","row"];
+    } else core=["bike","mobility","hamiso","balance"];
+  }
   if(focus==="deep")   {
     core=proFlags.comp?["askip","mobility","row","deadbug"]:["mobility","row","pushup","deadbug"];
     extra=["soleus"];
@@ -1076,20 +1101,34 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
     /* Eccentric knee-flexor work is the highest-value prevention item in
        soccer, so it is budgeted before the barbell work, not after. */
     if(band.ecc) must.push("nordic");
-    core=["back-squat","bulgara","rdl","hipthrust"];
+    /* His MD-4 cell names accelerations alongside the lifting -- it is the
+       mechanical-load day, not a pure weight-room day. */
+    core=["back-squat","bulgara","accel","rdl","hipthrust"];
     extra=["copen","carry","calf"];
   }
   if(focus==="speed"){
-    must=[prof.speed>=3?"sprint":"sled"];
-    core=["askip","bound","slrdl"];
-    extra=["row","calf"];
+    /* Sprint exposure is the one thing small games do not cover, so every
+       outfield player sprints on the speed day -- the position profile
+       decides what comes NEXT (resisted starts vs more acceleration), not
+       whether sprinting happens. Tempo runs cover the HSR volume his doc
+       names as the classic complementary gap. */
+    must=["sprint"];
+    core=[prof.speed>=3?"accel":"sled","askip","bound"];
+    core.push(prof.hsr>=2?"tempo":"slrdl");
+    extra=["slrdl","row","calf"];
   }
   if(focus==="taper") { core=["askip","pogo","cmj"]; extra=["pallof","deadbug"]; }
-  if(focus==="primer"){ core=["rondo","cmj","askip"]; extra=["balance"]; }
+  if(focus==="primer"){
+    /* Match-eve jumps only for athletes used to them ("solamente si el
+       jugador está acostumbrado") -- first-year athletes prime with rhythm
+       and ball work instead. */
+    core=proFlags.novice?["rondo","askip"]:["rondo","cmj","askip"];
+    extra=["balance"];
+  }
 
   if(prof.jump>=3&&focus==="strength")     core.splice(2,0,"box-jump");
   if(prof.cod>=3&&focus==="speed")         core.splice(1,0,"lateral-lunge");
-  if(prof.hsr>=3&&focus==="speed")         core.push("accel");
+  if(prof.hsr>=3&&focus==="speed")         extra.unshift("accel");
   if(prof.strength>=3&&focus==="strength") core.splice(1,0,"trapbar");
   /* Female athletes: landing mechanics and hip control. Added exposure,
      never a replacement for the base session. */
@@ -1168,6 +1207,7 @@ function doseFor(e,band,tr,prog,prof,proFlags){
   if(e.id==="sled")   return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Descanso 90 s"};
   if(e.id==="accel")  return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Recuperación completa"};
   if(e.id==="hill")   return {load:`${clamp(prof.speed+3,4,6)} × 25 m`,detail:"Baja caminando"};
+  if(e.id==="tempo")  return {load:`${clamp(prof.hsr+3,4,6)} × 80 m`,detail:"Al 75\u201385% \u00b7 caminar de regreso \u00b7 cubre volumen HSR"};
   if(e.id==="askip")  return {load:"3 × 15 m",detail:"Técnica, sin fatiga"};
   if(e.id==="bike")   return {load:"12 min",detail:"Conversacional"};
   if(e.id==="rondo")  return {load:"8 min",detail:"Volumen bajo"};
@@ -1183,7 +1223,7 @@ function doseFor(e,band,tr,prog,prof,proFlags){
       detail:"Dosis de mantenimiento · semana con dos partidos"};
     const n=nordicDose(proFlags.nordicWk);
     return {load:`${n.sets} × ${n.reps}`,
-      detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
+      detail:`Semana ${n.wk} del protocolo · bajada lenta, nunca al fallo`};
   }
   if(prog&&RM_RATIO[e.id]){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
   /* The load is read at the week-1 anchor on purpose: the whole point of the
@@ -1346,7 +1386,8 @@ function setRoute(r){
 function build(a){
   const prof=POS[a.pos]||POS.medio, band=ageBand(a.age), tr=trainBand(a.ta);
   const map=mdMap((Array.isArray(a.games)&&a.games.length)?a.games:[6]);
-  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0,
+  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,
+    rm:a.rm||(a.pro&&+a.pro.sq1rm)||0,novice:(+a.ta||0)<1,
     block:a.block||1,tier:a.tier};
   const gates=[];
   if(a.route==="pro"){
@@ -1366,12 +1407,11 @@ function build(a){
   const days=map.map(m=>{
     if(m.game) return {md:"MD",di:m.d,day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
-    proFlags.micro=(m.focus==="micro");
     /* A non-starter finishes the week short of the running the match would
        have given him. Compensate per quality on the recovery days rather than
        simply adding minutes. */
     proFlags.comp = a.role!=="starter" && (m.focus==="recover"||m.focus==="deep");
-    const lbl=m.focus==="micro"?"MICRO":m.md;
+    const lbl=(m.focus==="recover"&&proFlags.comp&&m.fwd>=3)?"COMP":m.md;
     const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,lbl);
     let budget=45, ex=[], seen=new Set();
     for(const e of picks){
@@ -1412,13 +1452,30 @@ function build(a){
       }
       return o.load?{...x,load:o.load,detail:x.detail+" · ajustado"}:x;
     });
-    /* Percentage of this athlete's own match, per quality -- never one
-       combined "load" number, because locomotor and mechanical load diverge. */
-    const share={recover:.35,deep:.20,strength:.55,speed:.75,taper:.40,primer:.25,micro:.45}[m.focus]||0;
-    const pct=(a.pro&&+a.pro.refDist>0&&share)
-      ? `${Math.round(share*100)}% dist \u00b7 ${Math.round(+a.pro.refDist*share)} m`+
-        (+a.pro.refHsr>0?` \u00b7 HSR ${Math.round(+a.pro.refHsr*share*1.1)} m`:"")+
-        (+a.pro.refSpr>0?` \u00b7 sprint ${Math.round(+a.pro.refSpr*share*0.9)} m`:"")
+    /* Congested week: the Nordic maintenance dose rides on the clearest
+       existing day rather than replacing it. 1 × 3, never to failure. */
+    if(m.micro&&band.ecc){
+      const nd=byId("nordic");
+      if(nd&&nd.tiers[a.tier]&&!ex.some(x=>x.id==="nordic"))
+        ex.push({id:"nordic",pat:nd.pat,es:nd.es,tiers:nd.tiers,load:"1 × 3",
+          detail:"Dosis de mantenimiento · semana congestionada · nunca al fallo",
+          cue:nd.cue,caution:nd.caution||"",min:4});
+    }
+    /* Percentage of this athlete's own match, PER VARIABLE -- his worked
+       example is a day at 48% of distance but 72% of accelerations, and one
+       scalar cannot express that. Each reference accepts 3-5 match values
+       ("6800, 7100 6900") and uses the median, as §3 prescribes. Keepers are
+       excluded: outfield percentages do not transfer to a goalkeeper. */
+    const SHARE={recover:{d:.35,h:.10,s:.05,a:.20},deep:{d:.20,h:0,s:0,a:.10},
+      strength:{d:.55,h:.35,s:.25,a:.75},speed:{d:.60,h:.90,s:.85,a:.60},
+      taper:{d:.40,h:.45,s:.50,a:.35},primer:{d:.25,h:.20,s:.30,a:.30}}[m.focus];
+    const refD=medOf(a.pro&&a.pro.refDist),refH=medOf(a.pro&&a.pro.refHsr),
+          refS=medOf(a.pro&&a.pro.refSpr),refA=medOf(a.pro&&a.pro.refAcc);
+    const pct=(!prof.gk&&SHARE&&refD>0)
+      ? `dist ${Math.round(refD*SHARE.d)} m (${Math.round(SHARE.d*100)}%)`+
+        (refH>0?` \u00b7 HSR ${Math.round(refH*SHARE.h)} m (${Math.round(SHARE.h*100)}%)`:"")+
+        (refS>0?` \u00b7 sprint ${Math.round(refS*SHARE.s)} m (${Math.round(SHARE.s*100)}%)`:"")+
+        (refA>0?` \u00b7 acc+dec ${Math.round(refA*SHARE.a)} (${Math.round(SHARE.a*100)}%)`:"")
       : "";
     return {pct,md:m.md,alt:m.alt||"",di:m.d,lbl,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
             mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
@@ -1529,7 +1586,9 @@ function renderCoachInner(){
     ${a.role!=="starter"?`<div class="sb"><span class="k">Rol</span>
       <span class="v" style="font-size:14px;color:var(--hot)">${a.role==="part"?"Cambio":"Sin min"}</span>
       <span class="n">compensa carga</span></div>`:""}
-    <div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]||"—"}</span>
+    ${a.route==="pro"&&a.pro&&(a.pro.s10||a.pro.s20||a.pro.s30)?`<div class="sb"><span class="k">Sprint</span>
+      <span class="v" style="font-size:13px">${a.pro.s10||"\u2014"} / ${a.pro.s20||"\u2014"} / ${a.pro.s30||"\u2014"}</span>
+      <span class="n">10 / 20 / 30 m (s)</span></div>`:""}<div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]||"—"}</span>
       <span class="n">plan base</span></div>`;
 
   const nb=[];
@@ -1563,8 +1622,17 @@ function renderCoachInner(){
       El calendario de esta semana no deja tres días libres antes de un partido,
       así que no se programa curl nórdico ni carga excéntrica alta. Retómalo en
       cuanto haya una semana con un solo partido.</div>`);
-  if(a.games.length>1) nb.push(`<div class="note-box"><b>Semana congestionada.</b> Con ${a.games.length} partidos
-    no hay día real de desarrollo. El objetivo es recuperar, mantener exposición y llegar disponible.</div>`);
+  if(a.games.length>1){
+    const microAdded=plan.days.some(d=>!d.game&&d.ex.some(x=>x.detail&&x.detail.indexOf("Dosis de mantenimiento")>=0));
+    nb.push(`<div class="note-box"><b>Semana congestionada.</b> Con ${a.games.length} partidos
+    no hay día real de desarrollo. El objetivo es recuperar, mantener exposición y llegar disponible.${
+    microAdded?" Se mantiene una microdosis de n\u00f3rdico (1 \u00d7 3) en el d\u00eda m\u00e1s despejado.":""}</div>`);
+  }
+  if(a.pos==="portero"&&a.route==="pro") nb.push(`<div class="note-box"><b>Portero.</b> Los porcentajes de partido
+    de un jugador de campo no aplican al portero, as\u00ed que no se muestran. Registra en su lugar: n\u00famero y
+    altura de ca\u00eddas, saltos, impactos y desplazamientos explosivos.</div>`);
+  if(plan.days.some(d=>!d.game&&d.mins>60)) nb.push(`<div class="note-box"><b>Un d\u00eda pasa de una hora.</b>
+    Con los cambios manuales una sesi\u00f3n supera los 60 min \u2014 quita un ejercicio o mu\u00e9velo a un d\u00eda vecino.</div>`);
   $("notes").innerHTML=nb.join("");
 
   renderWeek($("week"),plan,a.tier,a);
@@ -1581,8 +1649,8 @@ function renderCoachInner(){
   $("shareUrl").title=url.length+" caracteres";
   loadLogs();
 
-  $("foot").innerHTML=`<b>Cómo se arma.</b> El calendario manda: los días de partido definen M5&ndash;M1 hacia atrás,
-    y la sesión más fuerte cae en M4. Volumen y intensidad no son lo mismo, y la distancia total no representa la carga
+  $("foot").innerHTML=`<b>Cómo se arma.</b> El calendario manda: los días de partido definen MD-5&ndash;MD-1 hacia atrás,
+    y la sesión más fuerte cae en MD-4. Volumen y intensidad no son lo mismo, y la distancia total no representa la carga
     mecánica — por eso el plan asigna objetivos por cualidad, no una sola carga total.<br><br>
     <b>Esto es complementario.</b> Si el atleta entrena en un club, hay que sumar entrenamiento del club + partido +
     gimnasio + rehabilitación. Esta semana no es un microciclo independiente.<br><br>
@@ -1929,7 +1997,7 @@ const TOUR=[
  {t:{es:"D\u00edas de partido",en:"Match days"},
   b:{es:`<p><b>Esto es lo m\u00e1s importante de toda la app.</b> Toca los d\u00edas que juega
       y la semana se ordena sola, hacia atr\u00e1s desde el partido:</p>
-      <ul><li>El d\u00eda fuerte cae <b>4 d\u00edas antes</b> del partido (M4), no el m\u00e1s
+      <ul><li>El d\u00eda fuerte cae <b>4 d\u00edas antes</b> del partido (MD-4), no el m\u00e1s
       lejano \u2014 ese a\u00fan se est\u00e1 recuperando del partido anterior.</li>
       <li>El d\u00eda previo es activaci\u00f3n corta. Los dos d\u00edas despu\u00e9s del
       partido son recuperaci\u00f3n.</li>
@@ -1937,7 +2005,7 @@ const TOUR=[
       no de desarrollar. La app lo dice y no programa excéntrico fuerte.</li></ul>`,
    en:`<p><b>This is the most important thing in the app.</b> Tap the days they play and
       the week orders itself backwards from the match:</p>
-      <ul><li>The heavy day lands <b>4 days before</b> the match (M4), not the furthest
+      <ul><li>The heavy day lands <b>4 days before</b> the match (MD-4), not the furthest
       day \u2014 that one is still recovering from the previous match.</li>
       <li>The day before is a short activation. The two days after the match
       are recovery.</li>
