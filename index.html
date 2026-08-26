@@ -769,11 +769,23 @@ $("copyBtn").onclick=()=>{const i=$("shareUrl");if(!i.value)return;
     $("copyBtn").textContent="Copiado";setTimeout(()=>$("copyBtn").textContent="Copiar enlace",1600);});};
 $("printBtn").onclick=()=>window.print();
 
-const h=location.hash;
-if(h.startsWith("#a=")){
+function route_(){
+  const h=location.hash;
+  if(!h.startsWith("#a=")) return;
   const p=dec(h.slice(3));
-  if(p&&p.d) showAthlete(p);
+  if(p&&p.d&&p.d.length){ showAthlete(p); return; }
+  /* A broken or truncated link must not drop an athlete into the coach tool. */
+  $("coachView").classList.add("hidden");
+  $("athView").classList.remove("hidden");
+  $("avName").textContent="Enlace no válido";
+  $("avSub").textContent="";
+  $("avWeek").innerHTML='<div class="rest">Este enlace está incompleto o vencido. '+
+    'Pídele a tu entrenador que te lo mande otra vez — a veces se corta al copiarlo.</div>';
+  $("avFoot").textContent="";
 }
+route_();
+/* Hash-only navigation does not reload the page, so re-route on change. */
+window.addEventListener("hashchange",()=>location.reload());
 </script>
 </body>
 </html>
