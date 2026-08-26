@@ -195,6 +195,12 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
             <option value="gym">Gimnasio completo</option>
             <option value="hotel">Mancuernas / bandas</option>
             <option value="bodyweight">Peso corporal</option></select></label>
+          <label class="f"><span>Semana protocolo nórdico</span><select id="fNor">
+            <option value="1">1 — 2×5, 1×sem</option>
+            <option value="2">2 — 2×6, 2×sem</option>
+            <option value="3">3 — 3×6-8, 3×sem</option>
+            <option value="4">4 — 3×8-10, 3×sem</option>
+            <option value="5">5+ — 3×12/10/8</option></select></label>
         </div>
 
         <div style="margin-top:14px">
@@ -313,97 +319,208 @@ const FIG={
  push:'<circle cx="11" cy="18" r="4"/><path d="M15 20h21M15 20v9M28 20v9M36 20v9M13 29h25"/>',
  pull:'<circle cx="24" cy="10" r="4"/><path d="M24 14v12M24 26v12M17 20h14M14 38h20M24 20l-8-6M24 20l8-6"/>',
  isometric:'<circle cx="24" cy="11" r="4"/><path d="M24 15v12M24 27l-6 11M24 27l6 11M16 22h16"/><path d="M8 24h4M36 24h4" opacity=".55"/>',
- carry:'<circle cx="24" cy="9" r="4"/><path d="M24 13v14M24 27l-4 11M24 27l4 11M17 19h14M14 19v6M34 19v6"/>'
+ carry:'<circle cx="24" cy="9" r="4"/><path d="M24 13v14M24 27l-4 11M24 27l4 11M17 19h14M14 19v6M34 19v6"/>',
+ calf:'<circle cx="24" cy="9" r="4"/><path d="M24 13v13M24 26v10M18 36h12M20 36l-2 4h12l-2-4"/><path d="M34 22v-6M31 19l3-3 3 3" opacity=".55"/>'
 };
 const fig=p=>`<svg class="fig" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FIG[p]||FIG.brace}</svg>`;
 
-/* ───────────── exercise bank ───────────── */
-/* tiers preserve training INTENT, not just body part */
+/* ───────────── exercise bank ─────────────
+   Names are Mexican / Latin American usage, verified against LatAm sources
+   rather than translated. Tier substitutions preserve training INTENT: the
+   bodyweight version gets harder through tempo, pause or unilateral load,
+   never easier. Set-and-rep counts are NOT baked into these names — the dose
+   engine computes those from age, training age and the athlete's own data. */
 const BANK=[
-{id:"squat",es:"Sentadilla trasera",pat:"squat",uni:false,int:"high",md:["M5","M4"],min:9,
- tiers:{gym:"Sentadilla trasera con barra",hotel:"Sentadilla goblet con mancuerna",bodyweight:"Sentadilla a una pierna asistida (pistol)"},
- cue:"Rodillas afuera, pecho arriba, baja controlado."},
+{id:"back-squat",es:"Sentadilla con barra",pat:"squat",uni:false,int:"high",md:["M5","M4"],min:9,
+ tiers:{gym:"Sentadilla con barra en rack",hotel:"Sentadilla goblet pesada, 3s de bajada y 2s de pausa",
+        bodyweight:"Sentadilla a una pierna a la silla (skater), 3s de bajada"},
+ cue:"Rodillas afuera, pecho firme, empuja el piso."},
+{id:"trapbar",es:"Peso muerto con barra hexagonal",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:9,
+ tiers:{gym:"Peso muerto con barra hexagonal",hotel:"Peso muerto con mancuernas a los costados",
+        bodyweight:"Bisagra de cadera a una pierna, 3s de bajada, brazos arriba"},
+ cue:"Empuja el piso con los pies, espalda larga."},
+{id:"spanish-squat",es:"Sentadilla española isométrica",pat:"isometric",uni:false,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:5,
+ tiers:{gym:"Sentadilla española con liga gruesa anclada al rack",
+        hotel:"Sentadilla española con liga anclada al marco de la puerta",
+        bodyweight:"Sentadilla isométrica en pared a 90 grados"},
+ cue:"Tronco vertical, aprieta el cuádriceps sin soltar."},
 {id:"rdl",es:"Peso muerto rumano",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:8,
- tiers:{gym:"Peso muerto rumano con barra",hotel:"PM rumano con mancuernas",bodyweight:"PM rumano a una pierna sin carga"},
- cue:"Cadera atrás, espalda recta, siente el isquio."},
+ tiers:{gym:"Peso muerto rumano con barra, 3s de bajada",hotel:"Peso muerto rumano con mancuernas, 4s de bajada",
+        bodyweight:"PM rumano a una pierna, 4s de bajada y 2s de pausa abajo"},
+ cue:"Lleva la cadera atrás, siente el jalón atrás del muslo.",
+ caution:"Carga excéntrica alta en isquiotibiales: no dentro de las 48 h previas al partido."},
 {id:"bulgara",es:"Sentadilla búlgara",pat:"lunge",uni:true,int:"high",md:["M5","M4"],min:8,
- tiers:{gym:"Búlgara con barra o mancuernas",hotel:"Búlgara con mancuernas",bodyweight:"Búlgara con pausa de 2s abajo"},
- cue:"Peso en la pierna de adelante, tronco estable."},
-{id:"hipthrust",es:"Empuje de cadera",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:7,
- tiers:{gym:"Hip thrust con barra",hotel:"Hip thrust con mancuerna",bodyweight:"Puente de glúteo a una pierna"},
- cue:"Termina apretando glúteo, no arquees la espalda."},
-{id:"slrdl",es:"PM rumano a una pierna",pat:"hinge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
- tiers:{gym:"PM rumano a una pierna con mancuerna",hotel:"PM rumano a una pierna con mancuerna",bodyweight:"PM rumano a una pierna con alcance"},
- cue:"Cadera cuadrada, baja lento, controla el equilibrio."},
-{id:"nordic",es:"Curl nórdico",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:6,
- tiers:{gym:"Curl nórdico con anclaje",hotel:"Curl nórdico con compañero",bodyweight:"Curl nórdico con banda de asistencia"},
- cue:"Baja lo más lento posible, cadera extendida.",
- caution:"Provoca dolor muscular fuerte si se progresa rápido. Nunca cerca del partido."},
-{id:"hamiso",es:"Isométrico de isquios",pat:"isometric",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
- tiers:{gym:"Puente isquios a una pierna en banco",hotel:"Puente isquios a una pierna en silla",bodyweight:"Puente isquios a una pierna en el piso"},
- cue:"Sostén sin que caiga la cadera."},
-{id:"copen",es:"Plancha Copenhague",pat:"brace",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
- tiers:{gym:"Copenhague completa en banco",hotel:"Copenhague en silla",bodyweight:"Copenhague con rodilla apoyada"},
- cue:"Empuja con el aductor, cuerpo en línea.",
- caution:"Progresar desde rodilla apoyada antes de la versión completa."},
-{id:"stepup",es:"Subida al cajón",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
- tiers:{gym:"Subida al cajón con mancuernas",hotel:"Subida a banco con mancuernas",bodyweight:"Subida a escalón con pausa arriba"},
- cue:"Sube sin impulso de la pierna de atrás."},
-{id:"calf",es:"Elevación de talones",pat:"isometric",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
- tiers:{gym:"Elevación de talones con carga",hotel:"Elevación de talones con mancuerna",bodyweight:"Elevación de talones a una pierna"},
- cue:"Rango completo, pausa arriba."},
-{id:"pogo",es:"Saltos pogo",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2"],min:4,
- tiers:{gym:"Saltos pogo",hotel:"Saltos pogo",bodyweight:"Saltos pogo"},
- cue:"Tobillo rígido, mínimo tiempo en el piso."},
-{id:"cmj",es:"Salto con contramovimiento",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2","M1"],min:3,
- tiers:{gym:"CMJ",hotel:"CMJ",bodyweight:"CMJ"},
- cue:"Salta lo más alto posible, cae suave."},
-{id:"bound",es:"Salto lateral con freno",pat:"bound",uni:true,int:"high",md:["M4","M3"],min:5,
- tiers:{gym:"Salto lateral con freno",hotel:"Salto lateral con freno",bodyweight:"Salto lateral con freno"},
- cue:"Aterriza y congela 2 segundos sin que caiga la rodilla."},
-{id:"broad",es:"Salto horizontal",pat:"jump",uni:false,int:"moderate",md:["M4","M3"],min:4,
- tiers:{gym:"Salto horizontal",hotel:"Salto horizontal",bodyweight:"Salto horizontal"},
- cue:"Proyecta la cadera hacia adelante."},
-{id:"sled",es:"Empuje de trineo",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:8,
- tiers:{gym:"Empuje de trineo cargado",hotel:"Sprint en cuesta",bodyweight:"Arranques con salida de 3 pasos"},
- cue:"Ángulo del cuerpo bajo, pasos potentes."},
-{id:"sprint",es:"Sprint máximo",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:9,
- tiers:{gym:"Sprint volante 20 m",hotel:"Sprint volante 20 m",bodyweight:"Sprint volante 20 m"},
- cue:"Descanso completo entre repeticiones. Calidad, no cantidad.",
- caution:"Requiere calentamiento completo. Nunca con isquios adoloridos."},
-{id:"askip",es:"A-skip",pat:"sprint",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
- tiers:{gym:"A-skip",hotel:"A-skip",bodyweight:"A-skip"},
- cue:"Rodilla arriba, pie activo, ritmo constante."},
-{id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2"],min:4,
- tiers:{gym:"Press Pallof en polea",hotel:"Press Pallof con banda",bodyweight:"Plancha lateral con elevación"},
- cue:"No dejes que el tronco gire."},
-{id:"plank",es:"Plancha lateral",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
- tiers:{gym:"Plancha lateral con carga",hotel:"Plancha lateral con peso",bodyweight:"Plancha lateral"},
- cue:"Cadera alta, cuerpo en línea recta."},
+ tiers:{gym:"Sentadilla búlgara con barra o mancuernas",hotel:"Sentadilla búlgara con mancuernas, pie de atrás en la banca",
+        bodyweight:"Búlgara con el pie de atrás en la cama, 3s de bajada y 2s de pausa"},
+ cue:"Todo el peso en el pie de adelante.",
+ caution:"Genera mucho dolor muscular tardío: entra con pocas series y sube el volumen a lo largo de 3 semanas."},
+{id:"reverse-lunge",es:"Desplante hacia atrás",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+ tiers:{gym:"Desplante hacia atrás con barra",hotel:"Desplante hacia atrás con mancuernas",
+        bodyweight:"Desplante hacia atrás desde un escalón con pausa de 2s"},
+ cue:"Baja controlado, la rodilla de atrás casi toca."},
+{id:"lateral-lunge",es:"Desplante lateral",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+ tiers:{gym:"Desplante lateral con barra o mancuernas",hotel:"Desplante lateral tipo goblet con mancuerna",
+        bodyweight:"Desplante lateral deslizando con toalla, 3s de apertura"},
+ cue:"Cadera atrás, el pie que estira apunta al frente."},
+{id:"step-up",es:"Subida al cajón",pat:"lunge",uni:true,int:"moderate",md:["M5","M4","M3","M2"],min:6,
+ tiers:{gym:"Subida al cajón con barra, altura de la rodilla",hotel:"Subida a la banca con mancuernas",
+        bodyweight:"Subida lenta a la silla, 3s de bajada, sin impulso del pie de abajo"},
+ cue:"No te impulses con el pie de abajo."},
+{id:"slrdl",es:"Peso muerto rumano a una pierna",pat:"hinge",uni:true,int:"moderate",md:["M5","M4","M3"],min:6,
+ tiers:{gym:"PM rumano a una pierna con barra o pesa rusa",hotel:"PM rumano a una pierna con mancuerna contralateral",
+        bodyweight:"PM rumano a una pierna tocando el piso, 3s de bajada"},
+ cue:"Cadera cerrada y pareja, no gires el tronco."},
+{id:"nordic",es:"Curl nórdico de isquiotibiales",pat:"hinge",uni:false,int:"high",md:["M5","M4"],min:6,
+ tiers:{gym:"Curl nórdico en banco nórdico o con compañero",hotel:"Curl nórdico asistido con liga anclada arriba y atrás",
+        bodyweight:"Pies enganchados bajo la cama, frenando con las manos"},
+ cue:"Baja lo más lento posible con la cadera extendida.",
+ caution:"Dolor muscular severo si se progresa rápido. Sigue el protocolo por semanas. Nunca en M2 ni M1."},
+{id:"slider-curl",es:"Curl de isquiotibiales con toalla",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Curl de isquiotibiales en balón suizo desde el puente",hotel:"Curl de piernas con toalla en el piso",
+        bodyweight:"Curl de una pierna con toalla sobre piso liso"},
+ cue:"Cadera arriba todo el rango, no la dejes caer.",
+ caution:"Si aparece calambre en el isquiotibial, reduce el rango o vuelve a la versión bilateral."},
+{id:"hipthrust",es:"Hip thrust (empuje de cadera)",pat:"bridge",uni:false,int:"moderate",md:["M5","M4","M3"],min:7,
+ tiers:{gym:"Hip thrust con barra apoyado en banca",hotel:"Hip thrust con mancuerna, hombros sobre la banca",
+        bodyweight:"Hip thrust a una pierna con hombros en la cama, 2s arriba"},
+ cue:"Esconde las costillas y aprieta el glúteo arriba."},
+{id:"hamiso",es:"Puente isométrico de isquiotibiales a una pierna",pat:"bridge",uni:true,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Talón sobre cajón, puente a una pierna",hotel:"Talón sobre la banca, puente a una pierna",
+        bodyweight:"Talón sobre una silla, puente a una pierna"},
+ cue:"Jala el talón contra el apoyo, cadera nivelada."},
+{id:"copen",es:"Plancha de Copenhague",pat:"isometric",uni:true,int:"moderate",md:["M5","M4"],min:5,
+ tiers:{gym:"Copenhague completa con el tobillo sobre la banca",hotel:"Copenhague de palanca corta con la rodilla en la banca",
+        bodyweight:"Copenhague con el pie en una silla y la pierna de abajo apoyada"},
+ cue:"Jala con la pierna de arriba, cadera alta y alineada.",
+ caution:"Empieza con palanca corta y pocas series. Progresa la palanca antes que el tiempo."},
+{id:"adductor-squeeze",es:"Isométrico de aductores",pat:"isometric",uni:false,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Compresión de aductores boca arriba a 45 y 90 grados",hotel:"Aprieta una toalla enrollada entre las rodillas",
+        bodyweight:"Aprieta el puño entre las rodillas, esfuerzo progresivo"},
+ cue:"Aprieta progresivo, sin dolor en el pubis.",
+ caution:"Si reproduce dolor en pubis o ingle, detén y valora antes de cargar aductores."},
+{id:"lateral-walk",es:"Caminata lateral con liga",pat:"brace",uni:false,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Caminata lateral con liga en media sentadilla",hotel:"Caminata lateral con miniliga por el pasillo",
+        bodyweight:"Abducción de cadera acostado de lado, 3s de sostén"},
+ cue:"Pasos largos, no dejes caer la rodilla hacia adentro."},
+{id:"hip-airplane",es:"Avión de cadera",pat:"hinge",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Avión de cadera sujetándose del rack",hotel:"Avión de cadera con una mano en la banca",
+        bodyweight:"Avión de cadera con una mano en la pared"},
+ cue:"Gira desde la cadera, el tronco firme como tabla."},
+{id:"pogo",es:"Saltos pogo",pat:"jump",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Saltos pogo sobre una línea o valla baja",hotel:"Saltos pogo en el lugar, manos en la cadera",
+        bodyweight:"Saltos pogo a una pierna en el lugar"},
+ cue:"Tobillo duro, contacto corto, rodilla casi recta."},
+{id:"cmj",es:"Salto con contramovimiento (CMJ)",pat:"jump",uni:false,int:"moderate",
+ md:["M5","M4","M3","M2","M1"],min:3,
+ tiers:{gym:"CMJ sobre tapete de salto con retroalimentación",hotel:"CMJ con brazos, máxima intención",
+        bodyweight:"Salto desde pausa de 2s abajo"},
+ cue:"Salta con toda la intención y aterriza suave."},
+{id:"box-jump",es:"Salto al cajón",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Salto al cajón bajando caminando",hotel:"Salto a la banca bajando caminando",
+        bodyweight:"Salto horizontal con aterrizaje firme"},
+ cue:"Baja caminando, nunca brinques de regreso al piso.",
+ caution:"Bajar saltando agrega carga excéntrica innecesaria y es donde ocurren la mayoría de los accidentes."},
+{id:"bound",es:"Salto lateral de patinador",pat:"bound",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Salto lateral sobre una línea con aterrizaje sostenido 2s",
+        hotel:"Salto lateral con aterrizaje sostenido, miniliga opcional",
+        bodyweight:"Salto lateral aterrizando y sosteniendo 3s"},
+ cue:"Aterriza y congélate, rodilla alineada al pie."},
+{id:"depth-jump",es:"Salto en profundidad",pat:"jump",uni:false,int:"high",md:["M4","M3"],min:5,
+ tiers:{gym:"Salto en profundidad desde cajón de 30-40 cm",hotel:"Caída desde la banca con rebote inmediato",
+        bodyweight:"Saltos repetidos con rebote inmediato y contacto mínimo"},
+ cue:"Contacto corto, rebota como resorte.",
+ caution:"Carga muy alta en tendón rotuliano y aquíleo. Sólo con base de fuerza previa. Nunca en M2 ni M1."},
+{id:"askip",es:"Técnica de carrera",pat:"sprint",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
+ tiers:{gym:"Marcha A, skipping A y drill de pared en cancha",hotel:"Drill de pared y marcha A en el pasillo",
+        bodyweight:"Drill de pared contra el muro del cuarto"},
+ cue:"Pisa debajo de la cadera, punta del pie arriba."},
+{id:"accel",es:"Sprint de aceleración",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+ tiers:{gym:"Sprints de 10-20 m con salida escalonada, recuperación completa",
+        hotel:"Salidas resistidas con liga y compañero, 8-10 m",
+        bodyweight:"Salidas en caída al aire libre, 8-10 m"},
+ cue:"Empuja el piso hacia atrás, sube gradual.",
+ caution:"Sólo tras calentamiento completo. El sprint en frío lesiona isquiotibiales."},
+{id:"sled",es:"Empuje de trineo",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+ tiers:{gym:"Empuje de trineo al 50-75% del peso corporal",hotel:"Marcha resistida con liga y compañero",
+        bodyweight:"Empuje isométrico contra la pared en posición de aceleración"},
+ cue:"Tronco inclinado, pasos potentes, no te levantes."},
+{id:"hill",es:"Sprint en cuesta",pat:"sprint",uni:false,int:"high",md:["M5","M4","M3"],min:8,
+ tiers:{gym:"Sprints en cuesta al 8-10%, bajando caminando",hotel:"Caminadora inclinada o rampa de estacionamiento",
+        bodyweight:"Sprints de escaleras, bajando caminando"},
+ cue:"Zancada corta y potente, mirada al frente.",
+ caution:"Nunca corras de bajada: la fase excéntrica del descenso es la que lesiona."},
+{id:"sprint",es:"Sprint lanzado",pat:"sprint",uni:false,int:"high",md:["M4","M3"],min:9,
+ tiers:{gym:"20 m de entrada y 20 m al 95-100%, recuperación completa",
+        hotel:"En campo abierto cercano: 30 m progresivos",bodyweight:"En campo abierto: 30 m progresivos"},
+ cue:"Relaja cara y hombros, deja que corra.",
+ caution:"Exposición necesaria pero de riesgo alto: calentamiento completo, lejos del partido, sin fatiga acumulada."},
+{id:"pallof",es:"Press Pallof",pat:"brace",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Press Pallof en polea en media rodilla",hotel:"Press Pallof con liga anclada a la puerta",
+        bodyweight:"Plancha lateral de palanca larga con el brazo extendido"},
+ cue:"No dejes que el tronco gire, respira normal."},
 {id:"deadbug",es:"Dead bug",pat:"brace",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:3,
- tiers:{gym:"Dead bug con carga",hotel:"Dead bug con banda",bodyweight:"Dead bug"},
- cue:"Espalda baja pegada al piso todo el tiempo."},
-{id:"pushup",es:"Lagartijas",pat:"push",uni:false,int:"low",md:["M5","M4","M3"],min:4,
- tiers:{gym:"Press de banca",hotel:"Press con mancuernas",bodyweight:"Lagartijas con tempo 3s"},
- cue:"Cuerpo en tabla, codos a 45 grados."},
-{id:"row",es:"Remo",pat:"pull",uni:false,int:"low",md:["M5","M4","M3"],min:4,
- tiers:{gym:"Remo con barra",hotel:"Remo con mancuerna",bodyweight:"Remo invertido bajo una mesa"},
- cue:"Lleva el codo atrás, no encojas el hombro."},
-{id:"carry",es:"Caminata del granjero",pat:"carry",uni:false,int:"low",md:["M5","M4","M3"],min:4,
- tiers:{gym:"Caminata del granjero",hotel:"Caminata con mancuernas",bodyweight:"Caminata en zancada con pausa"},
- cue:"Hombros abajo, tronco firme, pasos cortos."},
-{id:"mobility",es:"Movilidad de cadera y tobillo",pat:"isometric",uni:false,int:"low",md:["M5","M4","M3","M2","M1"],min:6,
+ tiers:{gym:"Dead bug sosteniendo liga o polea por encima",hotel:"Dead bug sosteniendo una mancuerna ligera arriba",
+        bodyweight:"Dead bug a 3s por repetición"},
+ cue:"Espalda baja pegada al piso, exhala al estirar."},
+{id:"carry",es:"Caminata con maleta",pat:"carry",uni:true,int:"moderate",md:["M5","M4","M3","M2"],min:4,
+ tiers:{gym:"Caminata con pesa rusa a un costado",hotel:"Caminata con mancuerna por el pasillo",
+        bodyweight:"Caminata con la maleta de viaje cargada"},
+ cue:"Hombros parejos, no te inclines hacia la carga."},
+{id:"pushup",es:"Press horizontal",pat:"push",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Press de banca con barra o mancuernas",hotel:"Press en piso o inclinado con mancuernas",
+        bodyweight:"Lagartijas con pies elevados, 3s de bajada"},
+ cue:"Costillas abajo, aprieta glúteos, cuerpo como tabla."},
+{id:"row",es:"Jalón horizontal",pat:"pull",uni:false,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Dominadas o remo con barra",hotel:"Remo a una mano con mancuerna sobre la banca",
+        bodyweight:"Remo invertido bajo una mesa firme"},
+ cue:"Jala con el codo, no con la mano."},
+{id:"calf",es:"Elevación de talones de pie",pat:"calf",uni:false,int:"moderate",md:["M5","M4","M3"],min:4,
+ tiers:{gym:"Elevación de talones de pie desde un escalón, 3s de bajada",
+        hotel:"Elevación de talones a una pierna con mancuerna",
+        bodyweight:"Elevación de talones a una pierna en la escalera, 3s arriba y abajo"},
+ cue:"Sube todo lo que puedas, baja lento y completo."},
+{id:"soleus",es:"Elevación de talones sentado (sóleo)",pat:"calf",uni:false,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Elevación de talones en máquina sentado",hotel:"Elevación de talones sentado con mancuerna en la rodilla",
+        bodyweight:"Elevación de talones sentado con la maleta sobre las rodillas"},
+ cue:"Rodilla doblada a 90 grados, empuja con la punta."},
+{id:"balance",es:"Equilibrio a una pierna con pie corto",pat:"isometric",uni:true,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Equilibrio a una pierna sobre colchoneta con pases de balón",
+        hotel:"Equilibrio a una pierna sobre una almohada con ojos cerrados",
+        bodyweight:"Equilibrio a una pierna en el piso, ojos cerrados, pie corto activo"},
+ cue:"Tres puntos del pie firmes, arco activo."},
+/* recovery and football-specific items */
+{id:"mobility",es:"Movilidad de cadera y tobillo",pat:"isometric",uni:false,int:"low",
+ md:["M5","M4","M3","M2","M1"],min:6,
  tiers:{gym:"Circuito de movilidad",hotel:"Circuito de movilidad",bodyweight:"Circuito de movilidad"},
  cue:"Sin prisa. Respira en cada posición."},
 {id:"bike",es:"Bici suave",pat:"isometric",uni:false,int:"low",md:["M5"],min:12,
  tiers:{gym:"Bici estática suave",hotel:"Bici o caminata rápida",bodyweight:"Caminata rápida"},
  cue:"Conversacional. No debe cansarte."},
-{id:"rondo",es:"Rondo / toque",pat:"sprint",uni:false,int:"low",md:["M1"],min:8,
+{id:"rondo",es:"Rondo con balón",pat:"sprint",uni:false,int:"low",md:["M1"],min:8,
  tiers:{gym:"Rondo con balón",hotel:"Rondo con balón",bodyweight:"Toque y cambios de dirección suaves"},
  cue:"Ritmo alegre, sin duelos fuertes."}
 ];
 const byId=i=>BANK.find(x=>x.id===i);
+
+/* Nordic hamstring progression — Mjølsnes 2004 / Petersen 2011 (AJSM).
+   Load progresses by lever and lowering speed, never by added weight.
+   Entering at a later week than the athlete has earned is the documented
+   way to cause the severe soreness that makes players abandon the exercise. */
+const NORDIC=[
+ {wk:1,sets:2,reps:"5",freq:1},
+ {wk:2,sets:2,reps:"6",freq:2},
+ {wk:3,sets:3,reps:"6-8",freq:3},
+ {wk:4,sets:3,reps:"8-10",freq:3},
+ {wk:5,sets:3,reps:"12, 10, 8",freq:3}
+];
+const nordicDose=w=>NORDIC[clamp((w|0)-1,0,4)]||NORDIC[0];
 
 /* ───────────── position profiles ───────────── */
 const POS={
@@ -468,19 +585,40 @@ const FOCUSNAME={recover:"Recuperar o compensar",deep:"Recuperación profunda",
 
 function pickFor(focus,prof,band,tier,sex,proFlags){
   const need=id=>{const e=byId(id);return e&&e.tiers[tier];};
-  let ids=[];
-  if(focus==="recover")  ids=["bike","mobility","hamiso","plank"];
-  if(focus==="deep")     ids=["mobility","row","pushup","deadbug"];
-  if(focus==="strength") ids=["squat","bulgara","rdl","hipthrust","copen","carry"];
-  if(focus==="speed")    ids=[prof.speed>=3?"sprint":"sled","askip","bound","slrdl","row"];
-  if(focus==="taper")    ids=["askip","pogo","cmj","pallof","deadbug"];
-  if(focus==="primer")   ids=["rondo","cmj","askip","plank"];
+  /* Three tiers of priority. The minute budget fills `must` before `core`
+     and `core` before `extra`, so protective work is never what gets cut
+     when the session runs long — that was backwards in the first version. */
+  let must=[], core=[], extra=[];
 
-  if(prof.jump>=3&&focus==="strength") ids.splice(2,0,"broad");
-  if(prof.hsr>=3&&focus==="speed")     ids.push("sprint");
-  if(sex==="f"&&(focus==="strength"||focus==="speed")) ids.push("bound","nordic");
-  if(proFlags.ham&&(focus==="strength"||focus==="recover")) ids.unshift("nordic","slrdl");
-  if(proFlags.limb&&focus==="strength") ids.unshift("bulgara");
+  if(focus==="recover"){ core=["bike","mobility","hamiso","balance"]; }
+  if(focus==="deep")   { core=["mobility","row","pushup","deadbug"]; extra=["soleus"]; }
+  if(focus==="strength"){
+    /* Eccentric knee-flexor work is the highest-value prevention item in
+       soccer, so it is budgeted before the barbell work, not after. */
+    if(band.ecc) must.push("nordic");
+    core=["back-squat","bulgara","rdl","hipthrust"];
+    extra=["copen","carry","calf"];
+  }
+  if(focus==="speed"){
+    must=[prof.speed>=3?"sprint":"sled"];
+    core=["askip","bound","slrdl"];
+    extra=["row","calf"];
+  }
+  if(focus==="taper") { core=["askip","pogo","cmj"]; extra=["pallof","deadbug"]; }
+  if(focus==="primer"){ core=["rondo","cmj","askip"]; extra=["balance"]; }
+
+  if(prof.jump>=3&&focus==="strength")     core.splice(2,0,"box-jump");
+  if(prof.cod>=3&&focus==="speed")         core.splice(1,0,"lateral-lunge");
+  if(prof.hsr>=3&&focus==="speed")         core.push("accel");
+  if(prof.strength>=3&&focus==="strength") core.splice(1,0,"trapbar");
+  /* Female athletes: landing mechanics and hip control. Added exposure,
+     never a replacement for the base session. */
+  if(sex==="f"&&focus==="strength") core.splice(1,0,"lateral-walk","bound");
+  /* A measured deficit outranks everything else on the day. */
+  if(proFlags.ham&&(focus==="strength"||focus==="recover")) must.unshift("nordic","slrdl");
+  if(proFlags.limb&&focus==="strength") must.unshift("bulgara");
+
+  let ids=[...must,...core,...extra];
 
   if(!band.ecc) ids=ids.filter(i=>i!=="nordic");
   ids=[...new Set(ids)].filter(need).filter(i=>{
@@ -503,7 +641,11 @@ function doseFor(e,band,tr,prog,prof,proFlags){
   if(e.id==="mobility")return{load:"6 min",detail:"Sin prisa"};
   if(e.pat==="brace"||e.pat==="isometric")
     return {load:`${sets} × ${e.uni?"25 s/lado":"30 s"}`,detail:"Calidad sobre tiempo"};
-  if(e.id==="nordic") return {load:`${prog?3:2} × 4`,detail:"Bajada de 4 s. Nunca al fallo"};
+  if(e.id==="nordic"){
+    const n=nordicDose(proFlags.nordicWk);
+    return {load:`${n.sets} × ${n.reps}`,
+      detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
+  }
   if(prog){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
   if(proFlags.limb&&e.uni) extra=` · lado ${proFlags.limbSide} +1 serie`;
   return {load:`${sets}${e.uni?"/lado":""} × ${reps}`,detail:`RIR ${rir}${extra}`};
@@ -563,6 +705,7 @@ function fill(a){
   $("fName").value=a.name; $("fAge").value=a.age; $("fSex").value=a.sex;
   $("fPos").value=a.pos; $("fHt").value=a.ht; $("fWt").value=a.wt;
   $("fTa").value=a.ta; $("fTier").value=a.tier; $("fProg").checked=!!a.prog;
+  $("fNor").value=a.nor||1;
   gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
   if(a.pro) Object.keys(a.pro).forEach(k=>{if($(k))$(k).value=a.pro[k];});
 }
@@ -575,6 +718,7 @@ function readForm(){
     age:clamp(+$("fAge").value||18,10,45), sex:$("fSex").value, pos:$("fPos").value,
     ht:clamp(+$("fHt").value||175,120,220), wt:clamp(+$("fWt").value||70,30,150),
     ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
+    nor:clamp(+$("fNor").value||1,1,5),
     games:gameDays.slice(), route, pro};
 }
 function setRoute(r){
@@ -590,7 +734,7 @@ function setRoute(r){
 function build(a){
   const prof=POS[a.pos], band=ageBand(a.age), tr=trainBand(a.ta);
   const map=mdMap(a.games);
-  const proFlags={ham:false,limb:false,limbSide:""};
+  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1};
   const gates=[];
   if(a.route==="pro"){
     const c=gateOne("cmj"), n=gateOne("nor");
@@ -607,7 +751,7 @@ function build(a){
     if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
     const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags);
-    let budget=52, ex=[], seen=new Set();
+    let budget=45, ex=[], seen=new Set();
     for(const e of picks){
       /* two exercises can collapse to the same movement once substituted
          down an equipment tier — keep only the first */
@@ -619,7 +763,7 @@ function build(a){
       ex.push({id:e.id,pat:e.pat,es:e.es,tiers:e.tiers,load:d.load,detail:d.detail,
         cue:e.cue,caution:e.caution||"",min:e.min});
     }
-    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,mins:52-budget+8};
+    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,mins:45-budget+8};
   });
   return {a,days,gates,band,tr,proFlags};
 }
