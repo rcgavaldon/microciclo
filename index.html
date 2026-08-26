@@ -266,6 +266,14 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 <div class="cols">
   <div>
     <section class="panel">
+      <div class="share" id="codeBar">
+        <span class="lk" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+          letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Tu c\u00f3digo</span>
+        <input id="coachCode" placeholder="ej. sebastian1" style="flex:1;min-width:120px">
+        <button class="ghost" id="syncBtn">Guardar en la nube</button>
+        <span id="syncState" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+          color:var(--muted)"></span>
+      </div>
       <div class="hd"><h2>Atletas</h2><span style="display:flex;gap:6px">
         <button class="ghost" id="lnkA" title="Enlace con toda tu lista">Enlace de respaldo</button>
         <button class="ghost" id="expA" title="Descargar copia de seguridad">Exportar</button>
@@ -969,9 +977,52 @@ function gateOne(pfx){
 }
 
 /* ───────────── state ───────────── */
+const API="https://roberto-gavaldon3--microciclo-api-api.modal.run";
 let store=load(), sel=null, route="gen", gameDays=[5], current=null;
+let CODE=(function(){try{return localStorage.getItem("mc.code")||"";}catch(e){return "";}})();
+
+function setSync(msg,tone){
+  const el=$("syncState"); if(!el) return;
+  el.textContent=msg;
+  el.style.color = tone==="bad" ? "var(--hot)" : tone==="ok" ? "var(--accent)" : "var(--muted)";
+}
+/* The roster lives on the server so it is the same on every device and the
+   athlete links keep working. Local storage stays as an offline mirror. */
+let pushTimer=null;
+function pushRoster(){
+  if(!CODE) return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>{
+    setSync("guardando\u2026");
+    fetch(API+"/roster/"+encodeURIComponent(CODE),{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({atletas:store})
+    }).then(r=>r.ok?r.json():Promise.reject(r.status))
+      .then(d=>setSync("guardado \u00b7 "+d.n+" atletas","ok"))
+      .catch(e=>setSync("sin conexi\u00f3n \u00b7 guardado local","bad"));
+  },600);
+}
+function pullRoster(){
+  if(!CODE) return Promise.resolve();
+  setSync("cargando\u2026");
+  return fetch(API+"/roster/"+encodeURIComponent(CODE))
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(d=>{
+      const list=d.atletas||[];
+      /* Server wins for athletes it knows; anything created offline survives. */
+      list.forEach(a=>{
+        if(!a||!a.name) return;
+        const i=store.findIndex(x=>(a.id&&x.id===a.id)||(!a.id&&x.name===a.name));
+        if(i>=0) store[i]=a; else store.push(a);
+      });
+      save(); drawRoster();
+      setSync(list.length+" atletas en la nube","ok");
+    })
+    .catch(()=>setSync("sin conexi\u00f3n \u00b7 usando datos locales","bad"));
+}
 function load(){try{const r=localStorage.getItem("mc.v1");return r?JSON.parse(r):[];}catch(e){return [];}}
 function save(){
+  pushRoster();
   try{ localStorage.setItem("mc.v1",JSON.stringify(store)); saveWarned=false; }
   catch(e){
     /* Private browsing or a full quota loses the roster silently otherwise. */
@@ -1255,7 +1306,7 @@ function renderCoachInner(){
 
   /* Payload carries exercise IDs only — names, cues and figures are looked up
      from the bank on the athlete's side. Keeps the link short enough to send. */
-  const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,
+  const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,c:CODE||'',
     d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
       e:d.ex.map(x=>{const o=OVERRIDES[x.id];
         return o?{i:x.id,l:x.load,d:x.detail,u:o}:{i:x.id,l:x.load,d:x.detail};})}))};
@@ -1348,7 +1399,11 @@ function showAthlete(p){
      values, and setting it afterwards meant entries were written under one
      key and read back under another, so nothing survived a reload. */
   LOGKEY="mc.log."+planStamp(p);
+  LOGCODE=(p.c&&/^[A-Za-z0-9_-]{1,64}$/.test(p.c))?p.c:"";
+  LOGPLAN=planStamp(p);
   draw();
+  /* Pull anything already logged from another device, then redraw over it. */
+  if(LOGCODE) pullLog().then(okd=>{ if(okd) draw(); });
   bindLogging($("avWeek"),p.n);
   /* Mark today so the athlete knows what he is doing right now. */
   const jsDay=new Date().getDay();            /* 0 = Sunday */
@@ -1362,7 +1417,9 @@ function showAthlete(p){
   });
   /* Send-to-coach bar */
   const bar=el("div","sendbar");
-  bar.innerHTML='<span class="hint">'+(STORAGE_OK
+  bar.innerHTML='<span id="logState" style="font-family:\'IBM Plex Mono\',monospace;'+
+    'font-size:10px;color:var(--muted)"></span>'+
+    '<span class="hint">'+(STORAGE_OK
       ? 'Apunta el peso que usaste. Se guarda en este tel\u00e9fono. Guarda este enlace para volver.'
       : 'Este navegador no guarda datos. \u00c1brelo en Chrome o Safari, o copia tus pesos antes de cerrar.')+
     '</span>'+
@@ -1462,12 +1519,54 @@ function logSet(day,ex,kind,val){
   catch(e){ MEMLOG=all; return false; }
   return true;
 }
+/* The athlete's log is written to the server so the coach can actually see
+   it. Local storage is kept as an offline mirror: a gym with no signal must
+   not lose the session, so writes queue and flush when the network returns. */
+let LOGCODE="", LOGPLAN="", pendingLog={}, logTimer=null;
+function pushLog(){
+  if(!LOGCODE||!LOGPLAN) return;
+  clearTimeout(logTimer);
+  logTimer=setTimeout(()=>{
+    const batch=pendingLog; pendingLog={};
+    if(!Object.keys(batch).length) return;
+    setLogState("guardando\u2026");
+    fetch(API+"/log/"+encodeURIComponent(LOGCODE)+"/"+encodeURIComponent(LOGPLAN),{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({e:batch})
+    }).then(r=>r.ok?r.json():Promise.reject(r.status))
+      .then(()=>setLogState("enviado a tu entrenador","ok"))
+      .catch(()=>{ Object.assign(pendingLog,batch);
+        setLogState("sin se\u00f1al \u00b7 se enviar\u00e1 solo","bad"); });
+  },900);
+}
+function setLogState(msg,tone){
+  const el=document.getElementById("logState"); if(!el) return;
+  el.textContent=msg;
+  el.style.color = tone==="bad" ? "var(--hot)" : tone==="ok" ? "var(--accent)" : "var(--muted)";
+}
+function pullLog(){
+  if(!LOGCODE||!LOGPLAN) return Promise.resolve();
+  return fetch(API+"/log/"+encodeURIComponent(LOGCODE)+"/"+encodeURIComponent(LOGPLAN))
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(d=>{
+      const all=logAll();
+      Object.keys(d).forEach(k=>{ if(k!=="_upd") all[LOGKEY+"|"+k]=d[k]; });
+      if(STORAGE_OK){ try{localStorage.setItem(LOGKEY,JSON.stringify(all));}catch(e){} }
+      else MEMLOG=all;
+      return true;
+    }).catch(()=>false);
+}
+/* Retry whatever failed as soon as the phone is back online. */
+window.addEventListener("online",()=>{ if(Object.keys(pendingLog).length) pushLog(); });
+
 function bindLogging(root,athleteName){
   root.addEventListener("input",ev=>{
     const t=ev.target;
     const key=t.dataset.log||t.dataset.set; if(!key) return;
     const [day,ex]=key.split("|");
     const okSave=logSet(day,ex,t.dataset.log?"w":"s",t.value.trim());
+    /* Queue the whole record so a partial batch never overwrites the other field. */
+    pendingLog[day+"|"+ex]={w:logGet(day,ex),s:logGet(day,ex,"s")};
+    pushLog();
     const row=t.closest(".ex");
     const filled=!!(logGet(day,ex)||logGet(day,ex,"s"));
     if(row) row.classList.toggle("logged",filled);
@@ -1496,6 +1595,20 @@ function buildSummary(name){
 
 /* ───────────── boot ───────────── */
 initPos(); initDays(); drawRoster(); setRoute("gen");
+if($("coachCode")){
+  $("coachCode").value=CODE;
+  $("syncBtn").onclick=()=>{
+    const v=$("coachCode").value.trim();
+    if(!/^[A-Za-z0-9_-]{3,64}$/.test(v)){
+      alert("El c\u00f3digo puede llevar letras, n\u00fameros, gui\u00f3n y gui\u00f3n bajo (3-64).");
+      return;
+    }
+    CODE=v; try{localStorage.setItem("mc.code",v);}catch(e){}
+    pullRoster().then(pushRoster);
+  };
+  if(CODE) pullRoster();
+  else setSync("elige un c\u00f3digo para guardar en la nube");
+}
 bindPlayers($("week")); bindPlayers($("avWeek"));
 $("rGen").onclick=()=>setRoute("gen");
 $("rPro").onclick=()=>setRoute("pro");
