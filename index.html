@@ -46,8 +46,20 @@ input,select,.mono,.tag,textarea{font-family:"IBM Plex Mono",ui-monospace,Menlo,
 header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
   border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:22px}
 .brand h1{font-size:clamp(24px,3.2vw,34px);font-weight:700;letter-spacing:-.02em;margin:0}
+.houserow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .house{font-family:"Archivo",sans-serif;font-size:11px;font-weight:700;letter-spacing:.22em;
-  text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+  text-transform:uppercase;color:var(--ink)}
+.mono-badge{width:34px;height:34px;border-radius:50%;background:#000;color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid #000}
+.mono-badge span{font-family:"Source Serif 4",Georgia,serif;font-style:italic;
+  font-weight:600;font-size:15px;letter-spacing:-.04em;line-height:1;
+  transform:translateY(-.5px)}
+/* On a dark ground the disc inverts so the mark still reads as a disc. */
+:root[data-theme="dark"] .mono-badge,
+:root[data-theme="dark"] .mono-badge{background:#fff;color:#000;border-color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .mono-badge{
+  background:#fff;color:#000;border-color:#fff}}
 .brand .sub{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--muted);margin-top:5px}
 .top .meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
@@ -267,6 +279,26 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .ovlbd b{font-family:"Archivo",sans-serif}
 .ovlbd .k{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--sunk);
   padding:1px 5px;border-radius:2px}
+/* SL Therapy is a black-and-white identity, so the athlete-facing plan drops
+   the app's teal. Colour is kept only where it carries meaning -- the safety
+   caution -- because removing that would cost legibility, not just style. */
+.slbrand{--accent:#111;--accent-soft:#ECECEC}
+:root[data-theme="dark"] .slbrand{--accent:#F2F2F2;--accent-soft:#242424}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .slbrand{
+  --accent:#F2F2F2;--accent-soft:#242424}}
+.slbrand .md{color:var(--ink)}
+.slbrand .md.game{color:var(--ink);font-weight:700}
+.slbrand .day.today{background:var(--accent-soft)}
+.slbrand .todaytag{background:#000;color:#fff}
+:root[data-theme="dark"] .slbrand .todaytag{background:#fff;color:#000}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .slbrand .todaytag{
+  background:#fff;color:#000}}
+.slbrand .seg button[aria-pressed="true"]{background:#111;color:#fff}
+:root[data-theme="dark"] .slbrand .seg button[aria-pressed="true"]{background:#F2F2F2;color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .slbrand .seg button[aria-pressed="true"]{
+  background:#F2F2F2;color:#111}}
+.slbrand .thumb{filter:grayscale(1) contrast(1.05)}
+.slbrand .thumb:hover{filter:none}
 .foot{margin-top:28px;padding-top:16px;border-top:1px solid var(--rule);
   font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);
   line-height:1.75;max-width:78ch}
@@ -449,10 +481,13 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 </div>
 
 <!-- ══════════════ ATHLETE ══════════════ -->
-<div class="wrap hidden" id="athView">
+<div class="wrap hidden slbrand" id="athView">
   <header class="top">
     <div class="brand">
-      <div class="house">SL&nbsp;Therapy</div>
+      <div class="houserow">
+        <span class="mono-badge" aria-hidden="true"><span>SL</span></span>
+        <span class="house">SL&nbsp;Therapy</span>
+      </div>
       <h1 id="avName">&nbsp;</h1><div class="sub" id="avSub">&nbsp;</div></div>
     <div class="meta noprint">
       <button class="ghost" id="helpBtnA" style="margin-bottom:8px">? C\u00f3mo se usa</button>
