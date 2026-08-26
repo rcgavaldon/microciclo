@@ -121,6 +121,7 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .quality{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.09em;
   text-transform:uppercase;color:var(--muted);margin-left:auto}
 .mins{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--muted)}
+.mins.pct{color:var(--accent);flex-basis:100%;margin-left:56px}
 
 .thumb{grid-row:span 2;position:relative;display:block;width:72px;height:41px;
   border-radius:2px;overflow:hidden;background:var(--sunk);cursor:pointer;
@@ -286,7 +287,15 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
             <option value="gym">Gimnasio completo</option>
             <option value="hotel">Mancuernas / bandas</option>
             <option value="bodyweight">Peso corporal</option></select></label>
-          <label class="f"><span>Semana protocolo nórdico</span><select id="fNor">
+          <label class="f"><span>Rol en el \u00faltimo partido</span><select id="fRole">
+            <option value="starter">Titular \u2014 60+ min</option>
+            <option value="part">De cambio \u2014 20-60 min</option>
+            <option value="bench">Sin minutos o menos de 20</option>
+          </select></label>
+          <label class="f"><span>Sentadilla 1RM (kg)</span><input id="fRM" class="num" type="number" min="0" max="400" placeholder="opcional"></label>
+          <label class="f"><span>RPE sesi\u00f3n 0-10</span><input id="fRPE" class="num" type="number" min="0" max="10" step="0.5" placeholder="opcional"></label>
+          <label class="f"><span>Duraci\u00f3n (min)</span><input id="fMin" class="num" type="number" min="0" max="240" placeholder="opcional"></label>
+          <label class="f"><span>Semana protocolo n\u00f3rdico</span><select id="fNor">
             <option value="1">1 — 2×5, 1×sem</option>
             <option value="2">2 — 2×6, 2×sem</option>
             <option value="3">3 — 3×6-8, 3×sem</option>
@@ -626,6 +635,38 @@ const BANK=[
         hotel:"Equilibrio a una pierna sobre una almohada con ojos cerrados",
         bodyweight:"Equilibrio a una pierna en el piso, ojos cerrados, pie corto activo"},
  cue:"Tres puntos del pie firmes, arco activo."},
+/* Goalkeeping. Outfield percentages do not transfer: the demands are dives,
+   jumps, short explosive displacement and upper body, not running volume. */
+{id:"gk-dive",es:"Ca\u00edda lateral con bal\u00f3n",pat:"bound",uni:true,int:"high",md:["M5","M4","M3"],min:8,
+ tiers:{gym:"Ca\u00edda lateral sobre colchoneta con bal\u00f3n",hotel:"Ca\u00edda lateral sobre colchoneta",
+        bodyweight:"Ca\u00edda lateral sobre c\u00e9sped, sin bal\u00f3n"},
+ cue:"Cae sobre el costado, no sobre el codo ni la cadera.",
+ caution:"Alto impacto. Sobre superficie blanda y s\u00f3lo con t\u00e9cnica de ca\u00edda aprendida."},
+{id:"gk-shuffle",es:"Desplazamiento lateral de portero",pat:"sprint",uni:false,int:"moderate",
+ md:["M5","M4","M3","M2"],min:6,
+ tiers:{gym:"Desplazamiento lateral entre conos",hotel:"Desplazamiento lateral entre marcas",
+        bodyweight:"Desplazamiento lateral entre marcas"},
+ cue:"Pies siempre bajo la cadera, nunca cruces las piernas."},
+{id:"gk-getup",es:"Levantada r\u00e1pida",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2"],min:5,
+ tiers:{gym:"Levantada r\u00e1pida del suelo a posici\u00f3n base",
+        bodyweight:"Levantada r\u00e1pida desde el suelo",hotel:"Levantada r\u00e1pida desde el suelo"},
+ cue:"Del suelo a posici\u00f3n base sin apoyar las dos manos."},
+{id:"gk-reactive",es:"Reacci\u00f3n con bal\u00f3n",pat:"jump",uni:false,int:"moderate",md:["M4","M3","M2","M1"],min:6,
+ tiers:{gym:"Reacci\u00f3n a bal\u00f3n lanzado desde corta distancia",
+        hotel:"Reacci\u00f3n a bal\u00f3n contra la pared",bodyweight:"Reacci\u00f3n a bal\u00f3n contra la pared"},
+ cue:"Ojos en el bal\u00f3n, manos primero."},
+{id:"gk-jump",es:"Salto con recepci\u00f3n",pat:"jump",uni:false,int:"moderate",md:["M5","M4","M3","M2"],min:5,
+ tiers:{gym:"Salto vertical con recepci\u00f3n y ca\u00edda",hotel:"Salto vertical con recepci\u00f3n",
+        bodyweight:"Salto vertical con ca\u00edda suave"},
+ cue:"Aterriza con las dos piernas, rodillas alineadas."},
+{id:"gk-throw",es:"Saque largo",pat:"push",uni:true,int:"moderate",md:["M5","M4","M3"],min:5,
+ tiers:{gym:"Saque largo con bal\u00f3n medicinal",hotel:"Lanzamiento con bal\u00f3n medicinal",
+        bodyweight:"Lanzamiento de bal\u00f3n contra la pared"},
+ cue:"Rota desde la cadera, no s\u00f3lo con el brazo."},
+{id:"gk-grip",es:"Fuerza de agarre y mu\u00f1eca",pat:"carry",uni:true,int:"low",md:["M5","M4","M3","M2","M1"],min:4,
+ tiers:{gym:"Agarre con mancuerna y extensiones de mu\u00f1eca",
+        hotel:"Agarre con mancuerna",bodyweight:"Agarre con toalla y flexiones de mu\u00f1eca"},
+ cue:"Aprieta fuerte, controla la bajada."},
 /* recovery and football-specific items */
 {id:"mobility",es:"Movilidad de cadera y tobillo",pat:"isometric",uni:false,int:"low",
  md:["M5","M4","M3","M2","M1"],min:6,
@@ -645,6 +686,7 @@ const byId=i=>BANK.find(x=>x.id===i);
    without a curated entry falls back to a YouTube search for its Spanish
    name, which cannot rot the way a specific video can. */
 const MEDIA={
+ "gk-dive":{url:"",search:"https://www.youtube.com/results?search_query=caida+lateral+portero+blocaje"}, "gk-shuffle":{url:"",search:"https://www.youtube.com/results?search_query=desplazamiento+lateral+portero+futbol"}, "gk-getup":{url:"",search:"https://www.youtube.com/results?search_query=levantada+rapida+portero+futbol"}, "gk-reactive":{url:"",search:"https://www.youtube.com/results?search_query=ejercicios+de+reaccion+portero"}, "gk-jump":{url:"",search:"https://www.youtube.com/results?search_query=salto+y+recepcion+portero+futbol"}, "gk-throw":{url:"",search:"https://www.youtube.com/results?search_query=saque+largo+portero+tecnica"}, "gk-grip":{url:"",search:"https://www.youtube.com/results?search_query=fuerza+de+agarre+muneca+portero"},
  "back-squat":{url:"https://www.youtube.com/watch?v=1XZ26_VAT0w",search:"https://www.youtube.com/results?search_query=sentadilla+con+barra+tecnica"}, "trapbar":{url:"https://www.youtube.com/watch?v=ngwEa50dG00",search:"https://www.youtube.com/results?search_query=peso+muerto+con+barra+hexagonal+tecnica"}, "spanish-squat":{url:"https://www.youtube.com/watch?v=ue_gcVs4LjA",search:"https://www.youtube.com/results?search_query=sentadilla+espanola+isometrica+tecnica"}, "rdl":{url:"https://www.youtube.com/watch?v=TdGndL9bSmo",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+tecnica"}, "bulgara":{url:"https://www.youtube.com/watch?v=R6D9F_fexZU",search:"https://www.youtube.com/results?search_query=sentadilla+bulgara+tecnica"}, "reverse-lunge":{url:"https://www.youtube.com/watch?v=wF96HPOuf7E",search:"https://www.youtube.com/results?search_query=desplante+hacia+atras+tecnica"}, "lateral-lunge":{url:"https://www.youtube.com/watch?v=6A7A8ua-sKQ",search:"https://www.youtube.com/results?search_query=desplante+lateral+tecnica"}, "step-up":{url:"https://www.youtube.com/watch?v=b7G5SbztUn0",search:"https://www.youtube.com/results?search_query=subida+al+cajon+step+up+tecnica"}, "slrdl":{url:"https://www.youtube.com/watch?v=rQ4NZoQ1Xas",search:"https://www.youtube.com/results?search_query=peso+muerto+rumano+a+una+pierna+tecnica"}, "nordic":{url:"https://www.youtube.com/watch?v=rfZ-i7erbaY",search:"https://www.youtube.com/results?search_query=curl+nordico+de+isquiotibiales+tecnica"}, "slider-curl":{url:"https://www.youtube.com/watch?v=uHDLEITrSQU",search:"https://www.youtube.com/results?search_query=curl+de+isquiotibiales+con+toalla+tecnica"}, "hipthrust":{url:"https://www.youtube.com/watch?v=3aTb9Megbuo",search:"https://www.youtube.com/results?search_query=hip+thrust+empuje+de+cadera+tecnica"}, "hamiso":{url:"https://www.youtube.com/watch?v=LVOwZhJCQUs",search:"https://www.youtube.com/results?search_query=puente+isometrico+de+isquiotibiales+tecnica"}, "copen":{url:"https://www.youtube.com/watch?v=lBIcQzr-cQs",search:"https://www.youtube.com/results?search_query=plancha+de+copenhague+aductores+tecnica"}, "adductor-squeeze":{url:"https://www.youtube.com/watch?v=T-Ben-ppf6w",search:"https://www.youtube.com/results?search_query=isometrico+de+aductores+tecnica"}, "lateral-walk":{url:"https://www.youtube.com/watch?v=9AHnDT4mqrg",search:"https://www.youtube.com/results?search_query=caminata+lateral+con+liga+tecnica"}, "hip-airplane":{url:"https://www.youtube.com/watch?v=sF1gOC3KoHk",search:"https://www.youtube.com/results?search_query=avion+de+cadera+hip+airplane+tecnica"}, "pogo":{url:"https://www.youtube.com/watch?v=zKqcL6HSTE4",search:"https://www.youtube.com/results?search_query=saltos+pogo+pliometria+tecnica"}, "cmj":{url:"https://www.youtube.com/watch?v=A6QgLSAuZH8",search:"https://www.youtube.com/results?search_query=salto+con+contramovimiento+CMJ+tecnica"}, "box-jump":{url:"https://www.youtube.com/watch?v=d2z2_rRkpAo",search:"https://www.youtube.com/results?search_query=salto+al+cajon+box+jump+tecnica"}, "bound":{url:"https://www.youtube.com/watch?v=T4OLrAlkHfE",search:"https://www.youtube.com/results?search_query=salto+lateral+de+patinador+tecnica"}, "depth-jump":{url:"https://www.youtube.com/watch?v=GeN0S3XCZnM",search:"https://www.youtube.com/results?search_query=salto+en+profundidad+depth+jump+tecnica"}, "askip":{url:"https://www.youtube.com/watch?v=6zrhHyrEorc",search:"https://www.youtube.com/results?search_query=tecnica+de+carrera+skipping+A+tecnica"}, "accel":{url:"https://www.youtube.com/watch?v=GzZjzBm-56k",search:"https://www.youtube.com/results?search_query=sprint+de+aceleracion+salida+tecnica"}, "sled":{url:"https://www.youtube.com/watch?v=_prbhPS0WKg",search:"https://www.youtube.com/results?search_query=empuje+de+trineo+sled+push+tecnica"}, "hill":{url:"https://www.youtube.com/watch?v=6X2mO6A7G-o",search:"https://www.youtube.com/results?search_query=sprint+en+cuesta+tecnica"}, "sprint":{url:"https://www.youtube.com/watch?v=o1CH_YmhvJo",search:"https://www.youtube.com/results?search_query=sprint+lanzado+maxima+velocidad+tecnica"}, "pallof":{url:"https://www.youtube.com/watch?v=o_CxFP4FJhA",search:"https://www.youtube.com/results?search_query=press+pallof+tecnica"}, "deadbug":{url:"https://www.youtube.com/watch?v=6VQZ2JokRtc",search:"https://www.youtube.com/results?search_query=dead+bug+core+tecnica"}, "carry":{url:"https://www.youtube.com/watch?v=3RKKnZhhelE",search:"https://www.youtube.com/results?search_query=caminata+con+maleta+suitcase+carry+tecnica"}, "pushup":{url:"https://www.youtube.com/watch?v=5HL5WY0WVJQ",search:"https://www.youtube.com/results?search_query=lagartijas+flexiones+de+pecho+tecnica"}, "row":{url:"https://www.youtube.com/watch?v=inp7pjrEY1w",search:"https://www.youtube.com/results?search_query=remo+con+mancuerna+tecnica"}, "calf":{url:"https://www.youtube.com/watch?v=aAniiWqBuOY",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+de+pie+tecnica"}, "soleus":{url:"https://www.youtube.com/watch?v=wRRYk709cYk",search:"https://www.youtube.com/results?search_query=elevacion+de+talones+sentado+soleo+tecnica"}, "balance":{url:"https://www.youtube.com/watch?v=Mdx2uAK9-SU",search:"https://www.youtube.com/results?search_query=equilibrio+a+una+pierna+pie+corto+tecnica"}, "mobility":{url:"https://www.youtube.com/watch?v=kILOdHiOZlE",search:"https://www.youtube.com/results?search_query=movilidad+de+cadera+y+tobillo+tecnica"}, "bike":{url:"",search:"https://www.youtube.com/results?search_query=bicicleta+suave+recuperacion+activa+tecnica"}, "rondo":{url:"https://www.youtube.com/watch?v=H2UymCixO_4",search:"https://www.youtube.com/results?search_query=rondo+con+balon+futbol+tecnica"}
 };
 /* Pull the 11-char id out of a YouTube URL so we can build a privacy-mode
@@ -689,7 +731,7 @@ const POS={
  central:{es:"Central",speed:1,strength:3,hsr:1,jump:3,cod:2},
  medio:{es:"Mediocampista",speed:2,strength:2,hsr:3,jump:1,cod:3},
  delantero:{es:"Delantero",speed:3,strength:3,hsr:2,jump:2,cod:2},
- portero:{es:"Portero",speed:1,strength:2,hsr:0,jump:3,cod:2}
+ portero:{es:"Portero",speed:1,strength:2,hsr:0,jump:3,cod:2,gk:true}
 };
 
 /* ───────────── generalized engine ───────────── */
@@ -777,14 +819,38 @@ function legalOn(e,label){
   return e.md.indexOf(label)>=0;
 }
 function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
+  /* Shared tail: equipment availability, youth intensity cap, match-day
+     legality and de-duplication, applied to any candidate list. */
+  const finish=list=>{
+    let out=[...new Set(list)].filter(i=>{const e=byId(i);return e&&e.tiers[tier];});
+    if(band.maxInt!=="high") out=out.filter(i=>byId(i).int!=="high");
+    return out.filter(i=>legalOn(byId(i),mdLabel)).map(byId);
+  };
+  /* Goalkeepers get their own session. Sled pushes, flying sprints and rondos
+     are outfield work and have no place in a keeper's week. */
+  if(prof.gk){
+    const ecc=band.ecc?["nordic"]:[];
+    if(focus==="recover") return finish(["mobility","bike","hamiso","gk-grip"]);
+    if(focus==="deep")    return finish(["mobility","row","pushup","deadbug"]);
+    if(focus==="strength")return finish(ecc.concat(["back-squat","gk-dive","hipthrust","gk-throw","copen","gk-grip"]));
+    if(focus==="speed")   return finish(["gk-dive","gk-shuffle","gk-getup","gk-reactive","bound","slrdl"]);
+    if(focus==="micro")   return finish(ecc.concat(["gk-shuffle","slrdl","gk-grip"]));
+    if(focus==="taper")   return finish(["gk-shuffle","gk-reactive","pogo","pallof"]);
+    if(focus==="primer")  return finish(["gk-reactive","gk-getup","askip","balance"]);
+  }
   const need=id=>{const e=byId(id);return e&&e.tiers[tier];};
   /* Three tiers of priority. The minute budget fills `must` before `core`
      and `core` before `extra`, so protective work is never what gets cut
      when the session runs long — that was backwards in the first version. */
   let must=[], core=[], extra=[];
 
-  if(focus==="recover"){ core=["bike","mobility","hamiso","balance"]; }
-  if(focus==="deep")   { core=["mobility","row","pushup","deadbug"]; extra=["soleus"]; }
+  if(focus==="recover"){ core=proFlags.comp
+    ? ["askip","accel","bound","mobility","hamiso"]
+    : ["bike","mobility","hamiso","balance"]; }
+  if(focus==="deep")   {
+    core=proFlags.comp?["askip","mobility","row","deadbug"]:["mobility","row","pushup","deadbug"];
+    extra=["soleus"];
+  }
   if(focus==="micro"){
     /* Reduced but real: keeps the eccentric protocol alive in a week that
        has no development day. */
@@ -826,6 +892,19 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
   return ids.map(byId);
 }
 
+/* Working load in kilograms, estimated from the tested squat 1RM using
+   conventional strength ratios. Shown as an estimate because only the squat
+   was actually tested -- the coach adjusts from there. */
+const RM_RATIO={"back-squat":1.00,"trapbar":1.15,"rdl":0.80,"hipthrust":1.20,
+  "bulgara":0.35,"reverse-lunge":0.40,"lateral-lunge":0.35,"step-up":0.40,
+  "slrdl":0.30,"row":0.55,"pushup":0.60,"calf":0.70,"carry":0.35};
+const RIR_PCT={1:0.87,2:0.83,3:0.79,4:0.75};
+function kgFor(e,rm,rir){
+  const r=RM_RATIO[e.id]; if(!rm||!r) return "";
+  const kg=rm*r*(RIR_PCT[clamp(rir,1,4)]||0.80);
+  const round=kg<40?1:2.5;
+  return " \u00b7 ~"+(Math.round(kg/round)*round)+" kg";
+}
 function doseFor(e,band,tr,prog,prof,proFlags){
   const rir=clamp(band.rir+tr.rirAdj,1,4);
   let sets=tr.sets, reps=tr.reps, extra="";
@@ -853,6 +932,7 @@ function doseFor(e,band,tr,prog,prof,proFlags){
       detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
   }
   if(prog){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
+  extra+=kgFor(e,proFlags.rm,rir);
   if(proFlags.limb&&e.uni) extra+=` · lado ${proFlags.limbSide} +1 serie`;
   return {load:`${sets}${e.uni?"/lado":""} × ${reps}`,detail:`RIR ${rir}${extra}`};
 }
@@ -925,6 +1005,8 @@ function fill(a){
   $("fPos").value=a.pos; $("fHt").value=a.ht; $("fWt").value=a.wt;
   $("fTa").value=a.ta; $("fTier").value=a.tier; $("fProg").checked=!!a.prog;
   $("fNor").value=a.nor||1;
+  $("fRole").value=a.role||"starter";
+  $("fRM").value=a.rm||""; $("fRPE").value=a.rpe||""; $("fMin").value=a.smin||"";
   gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
   /* Blank every measurement not present on this athlete, so nothing carries over from whoever was selected before. */
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=(a.pro&&a.pro[k]!==undefined)?a.pro[k]:""; });
@@ -942,6 +1024,10 @@ function readForm(){
     ht:clamp(+$("fHt").value||175,120,220), wt:clamp(+$("fWt").value||70,30,150),
     ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
     nor:clamp(+$("fNor").value||1,1,5),
+    role:$("fRole").value,
+    rm:clamp(+$("fRM").value||0,0,400),
+    rpe:clamp(+$("fRPE").value||0,0,10),
+    smin:clamp(+$("fMin").value||0,0,240),
     games:gameDays.slice(), route, pro,
     edits:(sel!==null&&store[sel]&&store[sel].edits)||{}};
 }
@@ -958,7 +1044,7 @@ function setRoute(r){
 function build(a){
   const prof=POS[a.pos]||POS.medio, band=ageBand(a.age), tr=trainBand(a.ta);
   const map=mdMap(a.games);
-  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1};
+  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0};
   const gates=[];
   if(a.route==="pro"){
     const c=gateOne("cmj"), n=gateOne("nor");
@@ -978,6 +1064,10 @@ function build(a){
     if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
     proFlags.micro=(m.focus==="micro");
+    /* A non-starter finishes the week short of the running the match would
+       have given him. Compensate per quality on the recovery days rather than
+       simply adding minutes. */
+    proFlags.comp = a.role!=="starter" && (m.focus==="recover"||m.focus==="deep");
     const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,
       m.focus==="micro"?"MICRO":m.md);
     let budget=45, ex=[], seen=new Set();
@@ -1006,7 +1096,15 @@ function build(a){
       }
       return o.load?{...x,load:o.load,detail:x.detail+" · ajustado"}:x;
     });
-    return {md:m.md,alt:m.alt||"",di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
+    /* Percentage of this athlete's own match, per quality -- never one
+       combined "load" number, because locomotor and mechanical load diverge. */
+    const share={recover:.35,deep:.20,strength:.55,speed:.75,taper:.40,primer:.25,micro:.45}[m.focus]||0;
+    const pct=(a.pro&&+a.pro.refDist>0&&share)
+      ? `${Math.round(share*100)}% dist \u00b7 ${Math.round(+a.pro.refDist*share)} m`+
+        (+a.pro.refHsr>0?` \u00b7 HSR ${Math.round(+a.pro.refHsr*share*1.1)} m`:"")+
+        (+a.pro.refSpr>0?` \u00b7 sprint ${Math.round(+a.pro.refSpr*share*0.9)} m`:"")
+      : "";
+    return {pct,md:m.md,alt:m.alt||"",di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
             mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
   });
   return {a,days,gates,band,tr,proFlags};
@@ -1022,7 +1120,8 @@ function renderWeek(node,plan,tier,athlete){
          d.alt?`<span class="alt"> · ${d.alt}</span>`:""}</span>
        <span class="dayname">${d.day}</span>
        <span class="quality">${d.q}</span>
-       ${d.game?"":`<span class="mins">· ${d.mins} min</span>`}`));
+       ${d.game?"":`<span class="mins">\u00b7 ${d.mins} min</span>`}
+       ${d.pct?`<span class="mins pct">\u00b7 ${d.pct}</span>`:""}`));
     if(d.game||!d.ex.length){
       w.appendChild(el("div","rest",d.rest||"Descanso."));
     } else {
@@ -1096,12 +1195,20 @@ function renderCoachInner(){
 
   const gm=a.games.map(d=>DAYS[d]).join(" + ");
   $("wkNote").textContent=`${a.name} · ${(POS[a.pos]||POS.medio).es} · ${gm}`;
+  const srpe=(a.rpe>0&&a.smin>0)?Math.round(a.rpe*a.smin):0;
+  const ref={d:nv("refDist"),h:nv("refHsr"),s:nv("refSpr"),a:nv("refAcc")};
+  const hasRef=ref.d>0;
   $("strip").innerHTML=`
     <div class="sb"><span class="k">Ruta</span><span class="v">${a.route==="pro"?"Análisis":"General"}</span>
       <span class="n">${a.route==="pro"?"con mediciones":"edad/sexo/posición"}</span></div>
     <div class="sb"><span class="k">Partidos</span><span class="v">${a.games.length}</span><span class="n">${gm}</span></div>
     <div class="sb"><span class="k">Sobrecarga</span><span class="v" style="color:${a.prog?"var(--hot)":"var(--cool)"}">${a.prog?"SÍ":"NO"}</span>
       <span class="n">${a.prog?"progresiva activa":"mantenimiento"}</span></div>
+    ${srpe?`<div class="sb"><span class="k">sRPE</span><span class="v">${srpe}</span>
+      <span class="n">${a.rpe} \u00d7 ${a.smin} min \u00b7 UA</span></div>`:""}
+    ${a.role!=="starter"?`<div class="sb"><span class="k">Rol</span>
+      <span class="v" style="font-size:14px;color:var(--hot)">${a.role==="part"?"Cambio":"Sin min"}</span>
+      <span class="n">compensa carga</span></div>`:""}
     <div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]}</span>
       <span class="n">plan base</span></div>`;
 
@@ -1271,6 +1378,7 @@ $("newA").onclick=()=>{
   $("fAge").value=18; $("fSex").value="m"; $("fHt").value=175;
   $("fWt").value=71; $("fTa").value=2; $("fTier").value="gym"; $("fNor").value=1;
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=""; });
+  $("fRole").value="starter"; $("fRM").value=""; $("fRPE").value=""; $("fMin").value="";
   setRoute("gen"); gameDays=[5]; initDays(); drawRoster();
 };
 $("delA").onclick=()=>{
