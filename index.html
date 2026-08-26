@@ -446,8 +446,8 @@ function thumb(pat,id,vid){
   if(!vid) return fig(pat,id);
   return `<span class="thumb" role="button" tabindex="0" data-vid="${vid}"
     aria-label="Ver demostración">
-    <img src="https://i.ytimg.com/vi/${vid}/mqdefault.jpg" alt="" loading="lazy"
-      onerror="this.closest('.thumb').classList.add('noimg')">
+    <img src="https://i.ytimg.com/vi/${vid}/mq2.jpg" alt="" loading="lazy"
+      onerror="if(!this.dataset.f){this.dataset.f=1;this.src=this.src.replace('/mq2.','/mqdefault.');}else{this.closest('.thumb').classList.add('noimg');}">
     <span class="pl"></span></span>`;
 }
 const fig=(p,id)=>{
