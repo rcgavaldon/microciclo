@@ -135,9 +135,47 @@ def api():
         cur = _read(p, {})
         cur.update(entries)
         cur["_upd"] = int(time.time())
+        # Which athlete this plan belongs to (a client-side hash of the name).
+        # Lets /last group a player's history without ever mixing two players
+        # who share the same coach token.
+        ath = body.get("a") or ""
+        if isinstance(ath, str) and SAFE.match(ath):
+            cur["_ath"] = ath
         _write(p, cur)
         vol.commit()
         return {"ok": True, "n": len(cur) - 1}
+
+    # The athlete's most recent logged weight per exercise, across every past
+    # plan of theirs. The app's block progression holds the load flat while
+    # reps climb, so last week's weight is this week's prescription. `skip`
+    # excludes the current plan so the endpoint never echoes today back.
+    @web.get("/last/{token}/{ath}")
+    def last_weights(token: str, ath: str, skip: str = ""):
+        import os
+
+        t = check(token)
+        if not SAFE.match(ath):
+            raise HTTPException(400, "atleta inválido")
+        vol.reload()
+        d = _path("coaches", t, "log")
+        recs = []
+        if os.path.isdir(d):
+            for fn in os.listdir(d):
+                if not fn.endswith(".json") or fn[:-5] == skip:
+                    continue
+                rec = _read(os.path.join(d, fn), {})
+                if rec.get("_ath") == ath:
+                    recs.append(rec)
+        recs.sort(key=lambda r: r.get("_upd", 0))
+        out = {}
+        for rec in recs:  # oldest first, so the newest write wins
+            for k, v in rec.items():
+                if k.startswith("_") or not isinstance(v, dict):
+                    continue
+                w = str(v.get("w") or "").strip()
+                if w:
+                    out[k.split("|")[-1]] = w[:12]
+        return {"w": out}
 
     # Everything the coach has been sent back, newest first.
     @web.get("/logs/{token}")

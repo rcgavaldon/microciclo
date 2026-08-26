@@ -276,6 +276,17 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .ovlbd{padding:16px;overflow-y:auto;font-size:14.5px;line-height:1.6}
 .ovlbd ol{margin:0 0 14px;padding-left:20px}
 .ovlbd li{margin-bottom:9px}
+.ovlbd ul{margin:0 0 12px;padding-left:20px}
+.tournav{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
+.tournav button{cursor:pointer}
+.tournav button[disabled]{opacity:.35;cursor:default}
+.tourdots{display:flex;gap:5px}
+.tourdots i{width:6px;height:6px;border-radius:50%;background:var(--rule)}
+.tourdots i.on{background:var(--accent)}
+.tourend{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.lastw{flex-basis:100%;width:100%;font-size:10px;color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;letter-spacing:.02em}
 .ovlbd b{font-family:"Archivo",sans-serif}
 .ovlbd .k{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--sunk);
   padding:1px 5px;border-radius:2px}
@@ -587,6 +598,7 @@ function setLang(l){
   try{localStorage.setItem("mc.lang",LANG);}catch(e){}
   document.documentElement.lang=LANG;
   applyLang();
+  if(OVL_MODE&&$("ovl")&&!$("ovl").classList.contains("hidden")) showHelp(OVL_MODE);
 }
 /* Re-label everything carrying a data-t key, then redraw anything generated. */
 function applyLang(){
@@ -986,12 +998,11 @@ function mdMap(gameDays){
   if(!hasBuild){
     let best=null;
     out.forEach(o=>{ if(o.game) return;
-      /* Must be clear of the last match as well as the next one: a day can be
-         both MD+1 and M4, and neuromuscular fatigue runs up to 72 h. */
-      /* Three clear days before the next match and two after the last one.
-         A day can satisfy one and fail the other -- Saturday in a Mon+Thu week
-         is both MD+2 and M2. */
-      if(o.back<2||o.fwd<3) return;
+      /* Three clear days on BOTH sides. Two days after a match was still
+         inside deep recovery -- the sweep caught the Nordic landing on a day
+         whose own header read MD+2. When no such day exists the week simply
+         has no microdose, and the coach panel says so honestly. */
+      if(o.back<3||o.fwd<3) return;
       if(!best||o.fwd>best.fwd||(o.fwd===best.fwd&&o.back>best.back)) best=o; });
     if(best){ best.focus="micro"; }
   }
@@ -1096,41 +1107,62 @@ function pickFor(focus,prof,band,tier,sex,proFlags,mdLabel){
   return ids.map(byId);
 }
 
-/* Working load in kilograms, estimated from the tested squat 1RM using
-   conventional strength ratios. Shown as an estimate because only the squat
-   was actually tested -- the coach adjusts from there. */
+/* Working load in kilograms, estimated from the tested squat 1RM. Two things
+   have to be true for the number to be honest:
+   - it has to come from the rep range, not from the RIR alone. Setting load
+     by RIR only printed the trap-bar deadlift at 100% of the tested squat 1RM
+     for sets of eight, and the squat itself at 87%.
+   - it only means anything where there is a bar or a dumbbell to load. A
+     "~110 kg" next to a one-leg squat to a chair is noise, so the estimate is
+     gym-tier only and the bodyweight movements are off the table entirely. */
 const RM_RATIO={"back-squat":1.00,"trapbar":1.15,"rdl":0.80,"hipthrust":1.20,
   "bulgara":0.35,"reverse-lunge":0.40,"lateral-lunge":0.35,"step-up":0.40,
-  "slrdl":0.30,"row":0.55,"pushup":0.60,"calf":0.70,"carry":0.35};
-const RIR_PCT={1:0.87,2:0.83,3:0.79,4:0.75};
-function kgFor(e,rm,rir){
-  const r=RM_RATIO[e.id]; if(!rm||!r) return "";
-  const kg=rm*r*(RIR_PCT[clamp(rir,1,4)]||0.80);
+  "slrdl":0.30,"carry":0.35};
+/* Epley inverted: the fraction of 1RM you can move for n reps. Reps left in
+   reserve count as reps you could have done, so 8 with 2 in the tank is
+   loaded like a set of 10. */
+const pctFor=(reps,rir)=>1/(1+(reps+clamp(rir,0,4))/30);
+const topRep=r=>{const m=String(r).match(/(\d+)(?!.*\d)/);return m?+m[1]:8;};
+function kgFor(e,rm,reps,rir,tier){
+  const r=RM_RATIO[e.id];
+  if(!rm||!r||tier!=="gym") return "";
+  const kg=rm*r*pctFor(topRep(reps),rir);
   const round=kg<40?1:2.5;
   return " \u00b7 ~"+(Math.round(kg/round)*round)+" kg";
 }
-/* A four-week block: build for three weeks, then unload. Week 4 keeps the
-   intensity and cuts the volume, which is what a deload is -- dropping the
-   weight instead would lose the adaptation the block just built. The Nordic
-   protocol runs on its own clock and is not touched by this. */
+/* Shift both ends of a rep range: "5\u20138" +1 -> "6\u20139". */
+const bumpReps=(r,n)=>n?String(r).replace(/\d+/g,m=>String(Math.max(1,(+m)+n))):r;
+/* A four-week block. The bar stays where it is and the reps climb. These are
+   footballers: the season is the job, and the same weight for one more rep is
+   a real increase that does not leave Thursday's legs in Saturday's match.
+   The same load for more reps means less left in the tank, so the RIR falls
+   as the reps rise -- that is the same set getting harder, labelled honestly,
+   not a second progression stacked on the first.
+   Week 4 unloads by cutting a set and returning to week-1 reps. The load is
+   anchored to week 1 and never recalculated, so "el peso no baja" is true.
+   The Nordic protocol runs on its own clock and is untouched by any of it. */
 const BLOCK={
-  1:{sets:0, rirAdj:+1, es:"Introducci\u00f3n", en:"Introduction",
-     note:"Semana 1: entra con margen. Deja 3 repeticiones en reserva y aprende los patrones."},
-  2:{sets:+1,rirAdj:0,  es:"Acumulaci\u00f3n", en:"Accumulation",
-     note:"Semana 2: se suma una serie en los b\u00e1sicos. Misma t\u00e9cnica, m\u00e1s trabajo."},
-  3:{sets:+1,rirAdj:-1, es:"Pico", en:"Peak",
-     note:"Semana 3: la m\u00e1s exigente del bloque. Acerca el esfuerzo al l\u00edmite sin llegar al fallo."},
-  4:{sets:-2,rirAdj:0,  es:"Descarga", en:"Deload",
-     note:"Semana 4: descarga. Baja el volumen, no la intensidad \u2014 as\u00ed conservas lo ganado."}
+  1:{reps:0, sets:0, rirAdj:+1, es:"Introducci\u00f3n", en:"Introduction",
+     note:"Semana 1: encuentra tu peso. Termina cada serie con unas 3 repeticiones de sobra, an\u00f3talo, y ese ser\u00e1 el peso de todo el bloque."},
+  2:{reps:+1,sets:0, rirAdj:0,  es:"Acumulaci\u00f3n", en:"Accumulation",
+     note:"Semana 2: el mismo peso de la semana 1, una repetici\u00f3n m\u00e1s por serie."},
+  3:{reps:+2,sets:0, rirAdj:-1, es:"Pico", en:"Peak",
+     note:"Semana 3: el mismo peso, dos repeticiones m\u00e1s. Es la semana m\u00e1s exigente del bloque y aun as\u00ed no subes la carga."},
+  4:{reps:0, sets:-1,rirAdj:+1, es:"Descarga", en:"Deload",
+     note:"Semana 4: descarga. Una serie menos y las repeticiones de la semana 1. El peso se queda igual."}
 };
 function doseFor(e,band,tr,prog,prof,proFlags){
   const blk=BLOCK[proFlags.block||1];
   const rir=clamp(band.rir+tr.rirAdj+blk.rirAdj,1,4);
   let sets=tr.sets, reps=tr.reps, extra="";
   if(e.int==="high"&&band.maxInt!=="high") sets=Math.max(2,sets-1);
-  /* Volume steps with the block, but only on the loaded work -- adding a set
-     of sprints or jumps is a different decision from adding a set of squats. */
-  if(RM_RATIO[e.id]) sets=Math.max(1,sets+blk.sets);
+  /* Reps and sets step with the block, but only on the loaded work -- adding
+     reps to a sprint or a jump is a different decision from adding reps to a
+     squat, and those have their own dosing below anyway. */
+  if(RM_RATIO[e.id]){
+    sets=Math.max(1,sets+blk.sets);
+    reps=bumpReps(reps,blk.reps);
+  }
   if(e.pat==="jump"||e.pat==="bound") return {load:`${sets} × 5`,detail:`Descanso 60 s`};
   if(e.id==="sprint") return {load:`${clamp(prof.speed+2,3,6)} × 20 m`,detail:"Descanso completo 3 min"};
   if(e.id==="sled")   return {load:`${clamp(prof.speed+3,4,6)} × 15 m`,detail:"Descanso 90 s"};
@@ -1153,8 +1185,11 @@ function doseFor(e,band,tr,prog,prof,proFlags){
     return {load:`${n.sets} × ${n.reps}`,
       detail:`Semana ${n.wk} del protocolo · ${n.freq}×/sem · bajada lenta, nunca al fallo`};
   }
-  if(prog){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
-  extra+=kgFor(e,proFlags.rm,rir);
+  if(prog&&RM_RATIO[e.id]){sets+=1;extra=" · +1 serie (sobrecarga activa)";}
+  /* The load is read at the week-1 anchor on purpose: the whole point of the
+     block is that this number does not move while the reps do. */
+  extra+=kgFor(e,proFlags.rm,tr.reps,
+    clamp(band.rir+tr.rirAdj+BLOCK[1].rirAdj,1,4),proFlags.tier);
   if(proFlags.limb&&e.uni) extra+=` · lado ${proFlags.limbSide} +1 serie`;
   return {load:`${sets}${e.uni?"/lado":""} × ${reps}`,detail:`RIR ${rir}${extra}`};
 }
@@ -1273,7 +1308,7 @@ function fill(a){
   $("fRole").value=a.role||"starter";
   $("fBlock").value=a.block||1;
   $("fRM").value=a.rm||""; $("fRPE").value=a.rpe||""; $("fMin").value=a.smin||"";
-  gameDays=a.games.slice(); route=a.route; setRoute(route); initDays();
+  gameDays=(a.games||[]).slice(); route=a.route; setRoute(route); initDays();
   /* Blank every measurement not present on this athlete, so nothing carries over from whoever was selected before. */
   PRO_IDS.forEach(k=>{ if($(k)) $(k).value=(a.pro&&a.pro[k]!==undefined)?a.pro[k]:""; });
 }
@@ -1295,7 +1330,7 @@ function readForm(){
     rm:clamp(+$("fRM").value||0,0,400),
     rpe:clamp(+$("fRPE").value||0,0,10),
     smin:clamp(+$("fMin").value||0,0,240),
-    games:gameDays.slice(), route, pro,
+    games:gameDays.slice().sort((x,y)=>x-y), route, pro,
     edits:(sel!==null&&store[sel]&&store[sel].edits)||{}};
 }
 function setRoute(r){
@@ -1304,14 +1339,15 @@ function setRoute(r){
   $("rPro").setAttribute("aria-pressed",r==="pro");
   $("proBlock").classList.toggle("hidden",r!=="pro");
   $("routeNote").textContent = r==="pro"
-    ? "Usa mediciones reales" : "Basado en edad, sexo, estatura y posición";
+    ? "Usa mediciones reales" : "Basado en edad, sexo, experiencia y posición";
 }
 
 /* ───────────── build week ───────────── */
 function build(a){
   const prof=POS[a.pos]||POS.medio, band=ageBand(a.age), tr=trainBand(a.ta);
-  const map=mdMap(a.games);
-  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0,block:a.block||1};
+  const map=mdMap((Array.isArray(a.games)&&a.games.length)?a.games:[6]);
+  const proFlags={ham:false,limb:false,limbSide:"",nordicWk:a.nor||1,rm:a.rm||0,
+    block:a.block||1,tier:a.tier};
   const gates=[];
   if(a.route==="pro"){
     const c=gateOne("cmj"), n=gateOne("nor");
@@ -1335,19 +1371,26 @@ function build(a){
        have given him. Compensate per quality on the recovery days rather than
        simply adding minutes. */
     proFlags.comp = a.role!=="starter" && (m.focus==="recover"||m.focus==="deep");
-    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,
-      m.focus==="micro"?"MICRO":m.md);
+    const lbl=m.focus==="micro"?"MICRO":m.md;
+    const picks=pickFor(m.focus,prof,band,a.tier,a.sex,proFlags,lbl);
     let budget=45, ex=[], seen=new Set();
     for(const e of picks){
       /* two exercises can collapse to the same movement once substituted
          down an equipment tier — keep only the first */
       const resolved=e.tiers[a.tier]||e.es;
       if(seen.has(resolved)) continue;
-      if(budget-e.min<0) continue;
-      seen.add(resolved); budget-=e.min;
       const d=doseFor(e,band,tr,a.prog,prof,proFlags);
+      /* Minutes must follow the actual set count: the bank values were
+         calibrated at three sets, and a 4-set week is longer than a 2-set
+         week even if the exercise list is identical. Only the RIR-dosed
+         work scales -- a sprint's minutes do not stretch with "sets". */
+      const mn=/^RIR /.test(d.detail)
+        ? Math.max(2,Math.round(e.min*(parseInt(d.load,10)||3)/3))
+        : e.min;
+      if(budget-mn<0) continue;
+      seen.add(resolved); budget-=mn;
       ex.push({id:e.id,pat:e.pat,es:e.es,tiers:e.tiers,load:d.load,detail:d.detail,
-        cue:e.cue,caution:e.caution||"",min:e.min});
+        cue:e.cue,caution:e.caution||"",min:mn});
     }
     /* Coach overrides are applied after generation so the engine stays the
        source of truth and an edit never silently changes another day. */
@@ -1357,7 +1400,13 @@ function build(a){
       const o=ed[x.id]; if(!o) return x;
       if(o.swap){
         const t=byId(o.swap);
-        if(t){ const d2=doseFor(t,band,tr,a.prog,prof,proFlags);
+        /* Same gate as the swap picker: day legality, the athlete's own
+           equipment, and the youth caps. A swap saved before those rules
+           tightened must not resurrect through an old edit. */
+        if(t&&legalOn(t,lbl)&&t.tiers[a.tier]
+           &&(band.maxInt==="high"||t.int!=="high")
+           &&(band.ecc||t.id!=="nordic")){
+          const d2=doseFor(t,band,tr,a.prog,prof,proFlags);
           return {id:t.id,pat:t.pat,es:t.es,tiers:t.tiers,load:o.load||d2.load,
                   detail:d2.detail+" · cambiado",cue:t.cue,caution:t.caution||"",min:t.min}; }
       }
@@ -1371,7 +1420,7 @@ function build(a){
         (+a.pro.refHsr>0?` \u00b7 HSR ${Math.round(+a.pro.refHsr*share*1.1)} m`:"")+
         (+a.pro.refSpr>0?` \u00b7 sprint ${Math.round(+a.pro.refSpr*share*0.9)} m`:"")
       : "";
-    return {pct,md:m.md,alt:m.alt||"",di:m.d,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
+    return {pct,md:m.md,alt:m.alt||"",di:m.d,lbl,mdLabel:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
             mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
   });
   return {a,days,gates,band,tr,proFlags};
@@ -1382,6 +1431,7 @@ function renderWeek(node,plan,tier,athlete){
   node.innerHTML="";
   plan.days.forEach(d=>{
     const w=el("div","day");
+    w.dataset.lbl=d.lbl||d.md;
     w.appendChild(el("div","dayhd",
       `<span class="md${d.game?" game":""}">${d.md}${
          d.alt?`<span class="alt"> · ${d.alt}</span>`:""}</span>
@@ -1401,8 +1451,8 @@ function renderWeek(node,plan,tier,athlete){
           <span class="nm">${esc(nm)}${vid
             ? `<span class="play" role="button" tabindex="0" data-vid="${vid}">ver</span>`
             : `<a href="${esc(md.url)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
-          <span class="load">${e.load}</span>
-          <span class="cue">${e.detail}${e.detail&&e.detail!==e.cue?" — "+esc(e.cue):""}</span>
+          <span class="load">${esc(e.load)}</span>
+          <span class="cue">${esc(e.detail)}${e.detail&&e.detail!==e.cue?" — "+esc(e.cue):""}</span>
           ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}
           <span class="rowbtns">
             <button data-act="load" data-day="${d.di}" data-ex="${e.id}">carga</button>
@@ -1479,7 +1529,7 @@ function renderCoachInner(){
     ${a.role!=="starter"?`<div class="sb"><span class="k">Rol</span>
       <span class="v" style="font-size:14px;color:var(--hot)">${a.role==="part"?"Cambio":"Sin min"}</span>
       <span class="n">compensa carga</span></div>`:""}
-    <div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]}</span>
+    <div class="sb"><span class="k">Equipo</span><span class="v" style="font-size:14px">${{gym:"Gimnasio",hotel:"Hotel",bodyweight:"Sin equipo"}[a.tier]||"—"}</span>
       <span class="n">plan base</span></div>`;
 
   const nb=[];
@@ -1491,8 +1541,14 @@ function renderCoachInner(){
     ${(a.block||1)===4?" Al terminar, vuelve a la semana 1 y considera repetir mediciones.":""}</div>`);
   if(plan.band.note) nb.push(`<div class="note-box"><b>Edad.</b> ${plan.band.note}</div>`);
   if(plan.tr.note)   nb.push(`<div class="note-box"><b>Experiencia.</b> ${plan.tr.note}</div>`);
-  if(a.prog) nb.push(`<div class="note-box"><b>Sobrecarga progresiva activa.</b> Añade series por encima del
-    mantenimiento. Sólo debe estar activa para atletas en recuperación o con déficit medido — revísalo antes de enviar.</div>`);
+  if(a.prog){
+    const touches=plan.days.some(d=>!d.game&&d.ex.some(x=>RM_RATIO[x.id]));
+    nb.push(touches
+      ? `<div class="note-box"><b>Sobrecarga progresiva activa.</b> Una serie extra en los levantamientos
+    con carga. Sólo debe estar activa para atletas en recuperación o con déficit medido — revísalo antes de enviar.</div>`
+      : `<div class="note-box"><b>Sobrecarga marcada, sin efecto esta semana.</b> El calendario no deja
+    levantamientos con carga, así que la serie extra no se aplica a nada. No es un error del plan.</div>`);
+  }
   if(a.sex==="f") nb.push(`<div class="note-box acc"><b>Atleta femenina.</b> Se añade trabajo de aterrizaje
     y control de rodilla, e isquios excéntrico.</div>`);
   if(plan.gates.length){
@@ -1516,7 +1572,7 @@ function renderCoachInner(){
   /* Payload carries exercise IDs only — names, cues and figures are looked up
      from the bank on the athlete's side. Keeps the link short enough to send. */
   const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,c:CODE||'',
-    d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
+    d:plan.days.map(d=>({m:d.md,y:d.day,x:d.di,q:d.q,G:d.game?1:0,r:d.rest||"",
       e:d.ex.map(x=>{const o=OVERRIDES[x.id];
         return o?{i:x.id,l:x.load,d:x.detail,u:o}:{i:x.id,l:x.load,d:x.detail};})}))};
   current.stamp=planStamp(payload);
@@ -1566,9 +1622,10 @@ function showAthlete(p){
     p.d.forEach(d=>{
       const w=el("div","day");
       w.appendChild(el("div","dayhd",
-        `<span class="md${d.G?" game":""}">${d.m}</span><span class="dayname">${d.y}</span>
-         <span class="quality">${d.q}</span>`));
-      if(d.G||!d.e.length) w.appendChild(el("div","rest",d.r||"Descanso."));
+        `<span class="md${d.G?" game":""}">${esc(d.m)}</span><span class="dayname">${esc(
+           (d.x>=0&&d.x<=6&&DAYSL[d.x])?DAYSL[d.x]:d.y)}</span>
+         <span class="quality">${esc(d.q)}</span>`));
+      if(d.G||!d.e.length) w.appendChild(el("div","rest",esc(d.r||"Descanso.")));
       else d.e.forEach(x=>{
         const e=byId(x.i);
         if(!e){
@@ -1591,6 +1648,7 @@ function showAthlete(p){
           <span class="cue">${esc(x.d)}${x.d&&x.d!==e.cue?" — "+esc(e.cue):""}</span>
           ${e.caution?`<span class="warn"><span>\u26a0</span><span>${esc(e.caution)}</span></span>`:""}
           <span class="logrow">
+            ${LASTW[x.i]?`<span class="lastw">${LANG==="en"?"last week":"la semana pasada"}: ${esc(LASTW[x.i])} kg</span>`:""}
             <span class="lk">Peso usado</span>
             <input type="number" inputmode="decimal" min="0" max="500" step="0.5"
               data-log="${esc(d.y)}|${esc(x.i)}" placeholder="kg" value="${esc(logGet(d.y,x.i))}">
@@ -1612,19 +1670,27 @@ function showAthlete(p){
   LOGKEY="mc.log."+planStamp(p);
   LOGCODE=(p.c&&/^[A-Za-z0-9_-]{1,64}$/.test(p.c))?p.c:"";
   LOGPLAN=planStamp(p);
+  ATH=planStamp({n:p.n});
   draw();
   /* Pull anything already logged from another device, then redraw over it. */
-  if(LOGCODE) pullLog().then(okd=>{ if(okd) draw(); });
+  if(LOGCODE) Promise.all([pullLog(),pullLast()]).then(r=>{ if(r[0]||r[1]) draw(); });
   bindLogging($("avWeek"),p.n);
   if(!seenIntro("mc.seen.ath")) setTimeout(()=>showHelp("ath"),400);
-  /* Mark today so the athlete knows what he is doing right now. */
-  const jsDay=new Date().getDay();            /* 0 = Sunday */
-  const todayName=DAYSL[(jsDay+6)%7];
-  $("avWeek").querySelectorAll(".day").forEach(d=>{
-    const nm=d.querySelector(".dayname");
-    if(nm&&nm.textContent===todayName){
-      d.classList.add("today");
-      nm.insertAdjacentHTML("afterend",'<span class="todaytag">hoy</span>');
+  /* Mark today so the athlete knows what he is doing right now. The match is
+     on the weekday index carried in the payload -- comparing rendered text
+     against one language's day names broke whenever coach and athlete were
+     not in the same language. Links from before x existed fall back to names
+     in both languages. */
+  const todayIdx=(new Date().getDay()+6)%7;   /* Monday = 0 */
+  const dayEls=$("avWeek").querySelectorAll(".day");
+  p.d.forEach((d,i)=>{
+    const node=dayEls[i]; if(!node) return;
+    const hit = (d.x>=0&&d.x<=6) ? d.x===todayIdx
+      : (DICT.es.daysLong[todayIdx]===d.y||DICT.en.daysLong[todayIdx]===d.y);
+    if(hit){
+      node.classList.add("today");
+      const nm=node.querySelector(".dayname");
+      if(nm) nm.insertAdjacentHTML("afterend",'<span class="todaytag">'+T("today")+'</span>');
     }
   });
   /* Send-to-coach bar */
@@ -1734,7 +1800,7 @@ function logSet(day,ex,kind,val){
 /* The athlete's log is written to the server so the coach can actually see
    it. Local storage is kept as an offline mirror: a gym with no signal must
    not lose the session, so writes queue and flush when the network returns. */
-let LOGCODE="", LOGPLAN="", pendingLog={}, logTimer=null;
+let LOGCODE="", LOGPLAN="", ATH="", LASTW={}, pendingLog={}, logTimer=null;
 function pushLog(){
   if(!LOGCODE||!LOGPLAN) return;
   clearTimeout(logTimer);
@@ -1743,7 +1809,8 @@ function pushLog(){
     if(!Object.keys(batch).length) return;
     setLogState("guardando\u2026");
     fetch(API+"/log/"+encodeURIComponent(LOGCODE)+"/"+encodeURIComponent(LOGPLAN),{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({e:batch})
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({e:batch,a:ATH||""})
     }).then(r=>r.ok?r.json():Promise.reject(r.status))
       .then(()=>setLogState("enviado a tu entrenador","ok"))
       .catch(()=>{ Object.assign(pendingLog,batch);
@@ -1766,6 +1833,19 @@ function pullLog(){
       else MEMLOG=all;
       return true;
     }).catch(()=>false);
+}
+/* What this athlete lifted last week, per exercise. The block holds the
+   load flat while the reps climb, so last week's number IS this week's
+   prescription -- worth a line under the input. Keyed by a hash of the
+   athlete's name so two players on the same coach never see each other's
+   weights, and the current plan is skipped so it never echoes itself. */
+function pullLast(){
+  if(!LOGCODE||!ATH) return Promise.resolve(false);
+  return fetch(API+"/last/"+encodeURIComponent(LOGCODE)+"/"+encodeURIComponent(ATH)+
+      "?skip="+encodeURIComponent(LOGPLAN))
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(d=>{ LASTW=(d&&d.w)||{}; return Object.keys(LASTW).length>0; })
+    .catch(()=>false);
 }
 /* Retry whatever failed as soon as the phone is back online. */
 window.addEventListener("online",()=>{ if(Object.keys(pendingLog).length) pushLog(); });
@@ -1807,43 +1887,207 @@ function buildSummary(name){
 
 /* Help, and the first-run introduction. Shown automatically the first time
    someone opens either side, and reachable from the button after that. */
-const HELP_COACH=`
-<ol>
-  <li><b>Agrega un atleta.</b> Toca <span class="k">+ Nuevo</span>, pon nombre, edad,
-      posici\u00f3n y los d\u00edas de partido. Eso \u00faltimo es lo que ordena la semana.</li>
-  <li><b>Elige la ruta.</b> <span class="k">Generalizado</span> no necesita mediciones.
-      <span class="k">Con an\u00e1lisis</span> usa tus n\u00fameros reales (plataforma, NordBord,
-      H:Q, sprints, GPS).</li>
-  <li><b>Genera la semana.</b> El d\u00eda m\u00e1s fuerte cae en M4, cuatro d\u00edas antes del
-      partido \u2014 no en el d\u00eda m\u00e1s lejano, porque a\u00fan se est\u00e1 recuperando del anterior.</li>
-  <li><b>Ajusta lo que quieras.</b> Cada ejercicio tiene
-      <span class="k">carga</span>, <span class="k">cambiar</span>, <span class="k">video</span> y
-      <span class="k">quitar</span>.</li>
-  <li><b>Manda el enlace.</b> <span class="k">Copiar enlace</span> y por WhatsApp. El jugador
-      ve su semana, los videos y apunta el peso que us\u00f3.</li>
-  <li><b>Revisa lo que reportaron</b> en el panel de abajo.</li>
-</ol>
-<p><b>Tu c\u00f3digo</b> es lo que conecta todo. Gu\u00e1rdalo: con \u00e9l recuperas tu lista
-en cualquier tel\u00e9fono o computadora. No lo compartas \u2014 quien lo tenga ve tus atletas.</p>`;
+/* The coach help is a step-by-step tour: each screen explains one group of
+   inputs and what it actually changes in the plan, and the last screen offers
+   to create a disposable practice client so the first athlete they type is
+   not a real one. Dismissable with Cerrar at every step. */
+const TOUR=[
+ {t:{es:"Tu c\u00f3digo",en:"Your code"},
+  b:{es:`<p><b>Arriba a la izquierda est\u00e1 tu c\u00f3digo.</b> Es tu cuenta: guarda tu lista
+      de atletas en la nube y la abre igual en tu tel\u00e9fono o computadora.</p>
+      <ul><li>Si llegaste con tu enlace personal, ya viene puesto. Toca
+      <span class="k">Guardar en la nube</span> una vez.</li>
+      <li><b>No lo compartas:</b> quien tenga el c\u00f3digo ve y edita tus atletas.</li></ul>`,
+   en:`<p><b>Top left is your code.</b> It is your account: it stores your athlete list
+      in the cloud and opens it the same on your phone or computer.</p>
+      <ul><li>If you arrived through your personal link it is already filled in. Tap
+      <span class="k">Save to the cloud</span> once.</li>
+      <li><b>Do not share it:</b> anyone with the code sees and edits your athletes.</li></ul>`}},
+ {t:{es:"Crear un cliente: los datos",en:"Creating a client: the details"},
+  b:{es:`<p>Toca <span class="k">+ Nuevo</span> y llena la tarjeta. Cada campo mueve algo real:</p>
+      <ul>
+      <li><b>Edad</b> manda las cargas. Menor de 16: sin cargas altas ni curl n\u00f3rdico.
+          30+: m\u00e1s recuperaci\u00f3n, menos volumen.</li>
+      <li><b>Sexo</b>: femenino a\u00f1ade control de rodilla y aterrizajes (riesgo de LCA).</li>
+      <li><b>Posici\u00f3n</b>: portero cambia el plan completo; las dem\u00e1s ajustan
+          velocidad vs fuerza.</li>
+      <li><b>A\u00f1os entrenando</b> decide series y repeticiones. Menos de 1 a\u00f1o =
+          m\u00e1s repeticiones con menos carga.</li>
+      <li><b>Equipo</b>: Gimnasio, Hotel o Sin equipo \u2014 cada ejercicio cambia a la
+          versi\u00f3n que s\u00ed puede hacer.</li></ul>`,
+   en:`<p>Tap <span class="k">+ New</span> and fill the card. Every field moves something real:</p>
+      <ul>
+      <li><b>Age</b> rules the loads. Under 16: no heavy loading, no Nordic curl.
+          30+: more recovery, less volume.</li>
+      <li><b>Sex</b>: female adds knee-control and landing work (ACL risk).</li>
+      <li><b>Position</b>: goalkeeper changes the whole plan; the rest shift
+          speed vs strength emphasis.</li>
+      <li><b>Years training</b> sets sets and reps. Under 1 year =
+          more reps at lighter loads.</li>
+      <li><b>Equipment</b>: Gym, Hotel or No kit \u2014 every exercise switches to the
+          version they can actually do.</li></ul>`}},
+ {t:{es:"D\u00edas de partido",en:"Match days"},
+  b:{es:`<p><b>Esto es lo m\u00e1s importante de toda la app.</b> Toca los d\u00edas que juega
+      y la semana se ordena sola, hacia atr\u00e1s desde el partido:</p>
+      <ul><li>El d\u00eda fuerte cae <b>4 d\u00edas antes</b> del partido (M4), no el m\u00e1s
+      lejano \u2014 ese a\u00fan se est\u00e1 recuperando del partido anterior.</li>
+      <li>El d\u00eda previo es activaci\u00f3n corta. Los dos d\u00edas despu\u00e9s del
+      partido son recuperaci\u00f3n.</li>
+      <li><b>Dos partidos en la semana</b> = semana de recuperar y llegar disponible,
+      no de desarrollar. La app lo dice y no programa excéntrico fuerte.</li></ul>`,
+   en:`<p><b>This is the most important thing in the app.</b> Tap the days they play and
+      the week orders itself backwards from the match:</p>
+      <ul><li>The heavy day lands <b>4 days before</b> the match (M4), not the furthest
+      day \u2014 that one is still recovering from the previous match.</li>
+      <li>The day before is a short activation. The two days after the match
+      are recovery.</li>
+      <li><b>Two matches in the week</b> = a week for recovering and being available,
+      not for developing. The app says so and skips heavy eccentric work.</li></ul>`}},
+ {t:{es:"Semana del bloque (1\u20134)",en:"Block week (1\u20134)"},
+  b:{es:`<p>El plan vive en <b>bloques de 4 semanas</b>. La barra no sube: suben las
+      repeticiones.</p>
+      <ul><li><b>Semana 1</b>: encuentra su peso con ~3 repeticiones de sobra.</li>
+      <li><b>Semana 2</b>: mismo peso, +1 repetici\u00f3n por serie.</li>
+      <li><b>Semana 3</b>: mismo peso, +2 repeticiones. La m\u00e1s dura.</li>
+      <li><b>Semana 4</b>: descarga \u2014 una serie menos, repeticiones de la semana 1.</li></ul>
+      <p>Cada semana solo subes el selector y vuelves a tocar
+      <span class="k">Generar semana</span>. Al terminar la 4, regresas a la 1.</p>`,
+   en:`<p>The plan lives in <b>4-week blocks</b>. The bar does not go up: the reps do.</p>
+      <ul><li><b>Week 1</b>: find their weight with ~3 reps to spare.</li>
+      <li><b>Week 2</b>: same weight, +1 rep per set.</li>
+      <li><b>Week 3</b>: same weight, +2 reps. The hardest one.</li>
+      <li><b>Week 4</b>: deload \u2014 one set less, week-1 reps.</li></ul>
+      <p>Each week you just move the selector up and hit
+      <span class="k">Generate week</span> again. After week 4, back to 1.</p>`}},
+ {t:{es:"Los opcionales",en:"The optional fields"},
+  b:{es:`<ul>
+      <li><b>Sentadilla 1RM</b>: si la conoces, el plan imprime kilos estimados por
+      ejercicio (solo con gimnasio). Si no, d\u00e9jalo vac\u00edo \u2014 el atleta
+      encuentra su peso en la semana 1 y lo apunta.</li>
+      <li><b>Semana protocolo n\u00f3rdico</b>: en qu\u00e9 semana va del protocolo de
+      isquiotibiales (5 semanas). Sube una por semana.</li>
+      <li><b>Sobrecarga progresiva</b>: apagada por defecto. <b>Solo</b> para atletas en
+      recuperaci\u00f3n o con d\u00e9ficit medido.</li>
+      <li><b>Rol en el \u00faltimo partido</b>: quien no jug\u00f3 compensa carga en los
+      d\u00edas de recuperaci\u00f3n.</li>
+      <li><b>Ruta "Con an\u00e1lisis"</b>: si tienes mediciones reales (plataforma de salto,
+      NordBord, H:Q), aqu\u00ed entran \u2014 con filtro de fiabilidad autom\u00e1tico.</li></ul>`,
+   en:`<ul>
+      <li><b>Squat 1RM</b>: if you know it, the plan prints estimated kilos per exercise
+      (gym tier only). If not, leave it empty \u2014 the athlete finds their weight in
+      week 1 and logs it.</li>
+      <li><b>Nordic protocol week</b>: where they are in the 5-week hamstring protocol.
+      Move it up weekly.</li>
+      <li><b>Progressive overload</b>: off by default. <b>Only</b> for athletes in
+      rehab or with a measured deficit.</li>
+      <li><b>Role last match</b>: whoever did not play compensates load on the
+      recovery days.</li>
+      <li><b>"With testing" route</b>: if you have real measurements (jump plates,
+      NordBord, H:Q), they go here \u2014 with an automatic reliability filter.</li></ul>`}},
+ {t:{es:"Genera, ajusta y env\u00eda",en:"Generate, adjust, send"},
+  b:{es:`<p>Toca <span class="k">Generar semana</span>. En cada ejercicio tienes:</p>
+      <ul><li><span class="k">carga</span> \u2014 escribe tu propia dosis.</li>
+      <li><span class="k">cambiar</span> \u2014 alternativas legales para ese d\u00eda y
+      ese atleta (la app no te deja poner trabajo pesado pegado al partido).</li>
+      <li><span class="k">video</span> \u2014 pon tu propio video si prefieres.</li>
+      <li><span class="k">quitar</span> \u2014 fuera.</li></ul>
+      <p>Luego <span class="k">Copiar enlace</span> y m\u00e1ndalo por WhatsApp. El jugador ve
+      su semana con videos, apunta <b>peso y series</b>, y te llega abajo en
+      <b>"Lo que reportaron"</b> \u2014 sin que instale nada.</p>`,
+   en:`<p>Tap <span class="k">Generate week</span>. On every exercise you have:</p>
+      <ul><li><span class="k">carga</span> \u2014 write your own dose.</li>
+      <li><span class="k">cambiar</span> \u2014 legal alternatives for that day and that
+      athlete (the app will not let you put heavy work next to the match).</li>
+      <li><span class="k">video</span> \u2014 set your own video if you prefer.</li>
+      <li><span class="k">quitar</span> \u2014 out.</li></ul>
+      <p>Then <span class="k">Copy link</span> and send it on WhatsApp. The player sees the
+      week with videos, logs <b>weight and sets</b>, and it lands below in
+      <b>"What they reported"</b> \u2014 nothing to install.</p>`}},
+ {t:{es:"Pru\u00e9balo sin miedo",en:"Try it risk-free"},
+  b:{es:`<p>La forma m\u00e1s r\u00e1pida de entenderlo es verlo armado. Crea un
+      <b>cliente de prueba</b> con partido el s\u00e1bado: se genera su semana completa y puedes
+      tocar todo \u2014 cambiar ejercicios, abrir el enlace del atleta, borrar lo que sea.</p>
+      <p>Cuando quieras deshacerte de \u00e9l: <span class="k">Eliminar atleta</span>.</p>`,
+   en:`<p>The fastest way to get it is to see one built. Create a <b>practice client</b>
+      with a Saturday match: their full week generates and you can touch everything \u2014
+      swap exercises, open the athlete link, delete anything.</p>
+      <p>Whenever you want them gone: <span class="k">Delete athlete</span>.</p>`}}
+];
 
-const HELP_ATH=`
-<ol>
-  <li><b>Mira el d\u00eda marcado <span class="k">hoy</span></b>. Eso es lo que te toca.</li>
-  <li><b>Toca la imagen</b> de cualquier ejercicio y el video se abre aqu\u00ed mismo.</li>
-  <li><b>Apunta el peso</b> que usaste y las series que hiciste. Se guarda solo y le llega
-      a tu entrenador.</li>
-  <li><b>\u00bfSin gimnasio?</b> Usa los botones de arriba: <span class="k">Hotel</span> o
-      <span class="k">Sin equipo</span> cambian los ejercicios sin perder el objetivo.</li>
-  <li><b>Guarda este enlace.</b> Es tu plan de la semana.</li>
-</ol>
-<p>Si algo te <b>duele</b> \u2014 no molestia muscular, dolor \u2014 no lo hagas y avisa a tu
-entrenador.</p>`;
+/* The athlete card stays a single screen: short, and only what changes what
+   they do today. */
+const HELP_ATH={
+ es:`<ul>
+  <li><b>El d\u00eda marcado \u201choy\u201d es lo que te toca.</b> Nada m\u00e1s.</li>
+  <li><b>Toca la imagen</b> y el video se abre aqu\u00ed mismo.</li>
+  <li><b>Al terminar, apunta peso y series.</b> Se guarda solo y le llega a tu entrenador.</li>
+  <li><b>Mismo peso todas las semanas del bloque</b> \u2014 lo que sube son las repeticiones.</li>
+  <li><b>\u00bfSin gimnasio?</b> Botones <span class="k">Hotel</span> / <span class="k">Sin
+      equipo</span> arriba.</li>
+ </ul>
+ <p><b>Si algo te duele</b> \u2014 dolor, no molestia muscular \u2014 no lo hagas y avisa a tu
+ entrenador.</p>`,
+ en:`<ul>
+  <li><b>The day marked \u201ctoday\u201d is what you do.</b> Nothing else.</li>
+  <li><b>Tap the picture</b> and the video opens right here.</li>
+  <li><b>When you finish, log weight and sets.</b> It saves itself and reaches your coach.</li>
+  <li><b>Same weight every week of the block</b> \u2014 the reps are what go up.</li>
+  <li><b>No gym?</b> <span class="k">Hotel</span> / <span class="k">No kit</span> buttons
+      up top.</li>
+ </ul>
+ <p><b>If something hurts</b> \u2014 pain, not muscle soreness \u2014 skip it and tell your
+ coach.</p>`
+};
 
+var OVL_MODE="",tourStep=0;
 function showHelp(which){
-  $("ovlBody").innerHTML = which==="ath" ? HELP_ATH : HELP_COACH;
-  $("ovlTitle").textContent = which==="ath" ? "C\u00f3mo usar tu plan" : "C\u00f3mo funciona";
+  OVL_MODE=which;
+  if(which==="ath"){
+    $("ovlTitle").textContent=LANG==="en"?"How to use your plan":"C\u00f3mo usar tu plan";
+    $("ovlBody").innerHTML=HELP_ATH[LANG]||HELP_ATH.es;
+  } else {
+    tourStep=clamp(tourStep,0,TOUR.length-1);
+    drawTour();
+  }
   $("ovl").classList.remove("hidden");
   $("ovlX").focus();
+}
+function drawTour(){
+  const L=LANG==="en"?"en":"es", st=TOUR[tourStep], last=tourStep===TOUR.length-1;
+  $("ovlTitle").textContent=(tourStep+1)+"/"+TOUR.length+" \u00b7 "+st.t[L];
+  $("ovlBody").innerHTML=st.b[L]+
+    '<div class="tournav">'+
+    '<button class="ghost" id="tourPrev"'+(tourStep===0?" disabled":"")+'>'+
+      (L==="en"?"\u2039 Back":"\u2039 Anterior")+'</button>'+
+    '<span class="tourdots">'+TOUR.map((_,i)=>'<i class="'+(i===tourStep?"on":"")+'"></i>').join("")+'</span>'+
+    (last
+      ? '<span class="tourend"><button id="tourDemo">'+
+          (L==="en"?"Create practice client":"Crear cliente de prueba")+'</button>'+
+        '<button class="ghost" id="tourEnd">'+(L==="en"?"Done":"Listo")+'</button></span>'
+      : '<button id="tourNext">'+(L==="en"?"Next \u203a":"Siguiente \u203a")+'</button>')+
+    '</div>';
+  const bp=$("tourPrev"),bn=$("tourNext"),bd=$("tourDemo"),be=$("tourEnd");
+  if(bp)bp.onclick=()=>{tourStep=Math.max(0,tourStep-1);drawTour();};
+  if(bn)bn.onclick=()=>{tourStep=Math.min(TOUR.length-1,tourStep+1);drawTour();};
+  if(be)be.onclick=()=>{tourStep=0;hideHelp();};
+  if(bd)bd.onclick=makeDemoClient;
+}
+/* One tap builds a disposable athlete and generates the week, so the first
+   thing the coach types is never a real player. Deleting them is the normal
+   Eliminar atleta button. */
+function makeDemoClient(){
+  tourStep=0; hideHelp();
+  sel=null;
+  $("fName").value=LANG==="en"?"Practice client":"Cliente de prueba";
+  $("fAge").value=22; $("fSex").value="m"; $("fPos").value="delantero";
+  $("fHt").value=178; $("fWt").value=74; $("fTa").value=3;
+  $("fTier").value="gym"; $("fProg").checked=false; $("fNor").value=1;
+  $("fRole").value="starter"; $("fBlock").value=1;
+  $("fRM").value=""; $("fRPE").value=""; $("fMin").value="";
+  PRO_IDS.forEach(k=>{ if($(k)) $(k).value=""; });
+  setRoute("gen"); gameDays=[5]; initDays();
+  renderCoach();
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 function hideHelp(){ $("ovl").classList.add("hidden"); }
 function seenIntro(k){
@@ -1911,7 +2155,10 @@ $("week").addEventListener("click",ev=>{
   const a=store[sel]; if(!a) return;
   const {act,day,ex}=b.dataset;
   const dayRow=b.closest('.day');
-  const mdLabel=dayRow?dayRow.querySelector('.md').textContent.trim():'';
+  /* The rendered header is "M2 · MD+1" on dual-labelled days, which matches
+     nothing in the bank and left the swap list empty on most of the week.
+     The label the generator actually picked with rides on the day node. */
+  const mdLabel=dayRow?(dayRow.dataset.lbl||""):"";
   a.edits=a.edits||{}; a.edits[day]=a.edits[day]||{};
   const cur=a.edits[day][ex]=a.edits[day][ex]||{};
   const e=byId(ex);
@@ -1936,9 +2183,13 @@ $("week").addEventListener("click",ev=>{
     saveOverrides();
   }
   if(act==="swap"){
-    /* Only offer exercises legal for this day, so an edit cannot put
-       high-eccentric work next to the match. */
-    const legal=BANK.filter(x=>x.id!==ex&&legalOn(x,mdLabel));
+    /* Only offer exercises legal for this day AND this athlete: the same
+       age caps and equipment filter the generator applies. Without them the
+       swap offered the Nordic and loaded hinges to a ten-year-old. */
+    const bnd=ageBand(a.age);
+    const legal=BANK.filter(x=>x.id!==ex&&x.tiers[a.tier]&&legalOn(x,mdLabel)
+      &&(bnd.maxInt==="high"||x.int!=="high")
+      &&(bnd.ecc||x.id!=="nordic"));
     const NL=String.fromCharCode(10);
     const list=legal.map((x,i)=>`${i+1}. ${x.es}`).join(NL);
     const pick=prompt(`Cambiar ${e?e.es:ex} por:
@@ -2047,7 +2298,7 @@ function route_(){
       ta:3,tier:"gym",prog:false,nor:3,games:[5],route:"gen",pro:{},edits:{}};
     const plan=build(demo);
     showAthlete({n:demo.name,p:demo.pos,g:demo.games,t:demo.tier,
-      d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
+      d:plan.days.map(d=>({m:d.md,y:d.day,x:d.di,q:d.q,G:d.game?1:0,r:d.rest||"",
         e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail}))}))});
     return;
   }
