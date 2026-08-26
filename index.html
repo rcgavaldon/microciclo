@@ -133,6 +133,20 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent)}
   color:var(--warn);background:var(--warn-soft);border-left:2px solid var(--warn);
   padding:5px 8px;border-radius:0 2px 2px 0;margin-top:4px}
 .ex .warn span:first-child{flex:none;font-weight:600}
+.ex .nm a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
+.ex .nm a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.ex .nm a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ex .play{display:inline-block;margin-left:6px;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Mono",monospace;
+  border:1px solid var(--rule);border-radius:2px;padding:1px 4px;vertical-align:1px}
+.ex .nm a:hover .play{border-color:var(--accent);color:var(--accent)}
+.rowbtns{grid-column:3;display:flex;gap:4px;justify-content:flex-end;margin-top:4px}
+.rowbtns button{background:none;border:1px solid var(--rule);color:var(--muted);
+  border-radius:2px;cursor:pointer;font-size:9px;padding:2px 5px;line-height:1.4;
+  font-family:"IBM Plex Mono",monospace;letter-spacing:.06em}
+.rowbtns button:hover{border-color:var(--accent);color:var(--accent)}
+.ex.dropped{opacity:.4}
+.ex.dropped .nm{text-decoration:line-through}
 .rest{padding:10px 15px 12px 15px;font-size:13px;color:var(--muted);font-style:italic}
 
 .strip{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
@@ -530,6 +544,22 @@ const BANK=[
 ];
 const byId=i=>BANK.find(x=>x.id===i);
 
+/* Curated public demonstration videos, keyed by exercise id. We link to
+   publicly published videos — never rehost or embed as our own. Anything
+   without a curated entry falls back to a YouTube search for its Spanish
+   name, which cannot rot the way a specific video can. */
+const MEDIA={};
+const ytSearch=n=>"https://www.youtube.com/results?search_query="+
+  encodeURIComponent(n+" tecnica ejercicio");
+function mediaFor(id){
+  const ov=OVERRIDES[id];                 if(ov) return {url:ov,kind:"propio"};
+  const m=MEDIA[id];                      if(m&&m.url) return {url:m.url,kind:"video"};
+  const e=byId(id);
+  return {url:ytSearch(e?e.es:id),kind:"buscar"};
+}
+let OVERRIDES=(()=>{try{return JSON.parse(localStorage.getItem("mc.media")||"{}");}catch(e){return {};}})();
+function saveOverrides(){try{localStorage.setItem("mc.media",JSON.stringify(OVERRIDES));}catch(e){}}
+
 /* Nordic hamstring progression — Mjølsnes 2004 / Petersen 2011 (AJSM).
    Load progresses by lever and lowering speed, never by added weight.
    Entering at a later week than the athlete has earned is the documented
@@ -748,7 +778,8 @@ function readForm(){
     ht:clamp(+$("fHt").value||175,120,220), wt:clamp(+$("fWt").value||70,30,150),
     ta:clamp(+$("fTa").value||0,0,20), tier:$("fTier").value, prog:$("fProg").checked,
     nor:clamp(+$("fNor").value||1,1,5),
-    games:gameDays.slice(), route, pro};
+    games:gameDays.slice(), route, pro,
+    edits:(sel!==null&&store[sel]&&store[sel].edits)||{}};
 }
 function setRoute(r){
   route=r;
@@ -792,7 +823,22 @@ function build(a){
       ex.push({id:e.id,pat:e.pat,es:e.es,tiers:e.tiers,load:d.load,detail:d.detail,
         cue:e.cue,caution:e.caution||"",min:e.min});
     }
-    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,mins:45-budget+8};
+    /* Coach overrides are applied after generation so the engine stays the
+       source of truth and an edit never silently changes another day. */
+    const ed=(a.edits&&a.edits[m.md])||{};
+    ex=ex.filter(x=>!(ed[x.id]&&ed[x.id].drop));
+    ex=ex.map(x=>{
+      const o=ed[x.id]; if(!o) return x;
+      if(o.swap){
+        const t=byId(o.swap);
+        if(t){ const d2=doseFor(t,band,tr,a.prog,prof,proFlags);
+          return {id:t.id,pat:t.pat,es:t.es,tiers:t.tiers,load:o.load||d2.load,
+                  detail:d2.detail+" · cambiado",cue:t.cue,caution:t.caution||"",min:t.min}; }
+      }
+      return o.load?{...x,load:o.load,detail:x.detail+" · ajustado"}:x;
+    });
+    return {md:m.md,day:DAYSL[m.d],q:FOCUSNAME[m.focus],game:false,ex,
+            mins:Math.max(8,ex.reduce((t,x)=>t+x.min,0)+8)};
   });
   return {a,days,gates,band,tr,proFlags};
 }
@@ -813,10 +859,19 @@ function renderWeek(node,plan,tier,athlete){
       d.ex.forEach(e=>{
         const nm=e.tiers[tier]||e.es;
         const row=el("div","ex");
-        row.innerHTML=`${fig(e.pat,e.id)}<span class="nm">${esc(nm)}</span>
+        const md=mediaFor(e.id);
+        row.innerHTML=`${fig(e.pat,e.id)}
+          <span class="nm"><a href="${esc(md.url)}" target="_blank" rel="noopener noreferrer"
+            >${esc(nm)}<span class="play">${md.kind}</span></a></span>
           <span class="load">${e.load}</span>
           <span class="cue">${e.detail} — ${esc(e.cue)}</span>
-          ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}`;
+          ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}
+          <span class="rowbtns">
+            <button data-act="load" data-day="${d.md}" data-ex="${e.id}">carga</button>
+            <button data-act="swap" data-day="${d.md}" data-ex="${e.id}">cambiar</button>
+            <button data-act="vid"  data-day="${d.md}" data-ex="${e.id}">video</button>
+            <button data-act="drop" data-day="${d.md}" data-ex="${e.id}">quitar</button>
+          </span>`;
         w.appendChild(row);
       });
     }
@@ -871,7 +926,7 @@ function renderCoach(){
      from the bank on the athlete's side. Keeps the link short enough to send. */
   const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,
     d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
-      e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail}))}))};
+      e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail,u:mediaFor(x.id).url}))}))};
   const url=location.origin+location.pathname+"#a="+enc(payload);
   $("shareUrl").value=url;
   $("shareUrl").title=url.length+" caracteres";
@@ -923,7 +978,10 @@ function showAthlete(p){
       else d.e.forEach(x=>{
         const e=byId(x.i); if(!e) return;
         const row=el("div","ex");
-        row.innerHTML=`${fig(e.pat,e.id)}<span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}</span>
+        const mu=(x.u)||mediaFor(e.id).url;
+        row.innerHTML=`${fig(e.pat,e.id)}
+          <span class="nm"><a href="${esc(mu)}" target="_blank" rel="noopener noreferrer"
+            >${esc(e.tiers[tier]||e.tiers.gym)}<span class="play">ver</span></a></span>
           <span class="load">${esc(x.l)}</span>
           <span class="cue">${esc(x.d)} — ${esc(e.cue)}</span>
           ${e.caution?`<span class="warn"><span>⚠</span><span>${esc(e.caution)}</span></span>`:""}`;
@@ -946,6 +1004,58 @@ $("newA").onclick=()=>{sel=null;$("fName").value="Jugador Nuevo";$("fProg").chec
   gameDays=[5];initDays();drawRoster();};
 $("delA").onclick=()=>{if(sel===null)return;store.splice(sel,1);sel=null;save();drawRoster();};
 $("gen").onclick=renderCoach;
+
+/* Row controls in the generated week. Delegated so regenerating the week
+   does not need to rebind anything. */
+$("week").addEventListener("click",ev=>{
+  const b=ev.target.closest("button[data-act]"); if(!b||sel===null) return;
+  const a=store[sel]; if(!a) return;
+  const {act,day,ex}=b.dataset;
+  a.edits=a.edits||{}; a.edits[day]=a.edits[day]||{};
+  const cur=a.edits[day][ex]=a.edits[day][ex]||{};
+  const e=byId(ex);
+
+  if(act==="drop"){
+    cur.drop=!cur.drop;
+  }
+  if(act==="load"){
+    const v=prompt(`Carga para ${e?e.es:ex} en ${day}`,cur.load||"");
+    if(v===null) return;
+    if(v.trim()==="") delete cur.load; else cur.load=v.trim().slice(0,40);
+  }
+  if(act==="vid"){
+    const v=prompt(`Liga del video para ${e?e.es:ex}
+(deja vacío para volver al predeterminado)`,
+      OVERRIDES[ex]||"");
+    if(v===null) return;
+    const t=v.trim();
+    if(!t){ delete OVERRIDES[ex]; }
+    else if(/^https?:\/\//i.test(t)){ OVERRIDES[ex]=t; }
+    else { alert("La liga debe empezar con http:// o https://"); return; }
+    saveOverrides();
+  }
+  if(act==="swap"){
+    /* Only offer exercises legal for this day, so an edit cannot put
+       high-eccentric work next to the match. */
+    const legal=BANK.filter(x=>x.id!==ex&&(day.startsWith("MD")||x.md.includes(day)));
+    const NL=String.fromCharCode(10);
+    const list=legal.map((x,i)=>`${i+1}. ${x.es}`).join(NL);
+    const pick=prompt(`Cambiar ${e?e.es:ex} por:
+
+${list}
+
+Número (vacío = deshacer)`,"");
+    if(pick===null) return;
+    if(pick.trim()===""){ delete cur.swap; }
+    else{
+      const n=parseInt(pick,10);
+      if(!(n>=1&&n<=legal.length)){ alert("Número fuera de rango."); return; }
+      cur.swap=legal[n-1].id;
+    }
+  }
+  if(!cur.drop&&!cur.load&&!cur.swap) delete a.edits[day][ex];
+  save(); renderCoach();
+});
 $("expA").onclick=()=>{
   const blob=new Blob([JSON.stringify({v:1,atletas:store},null,1)],{type:"application/json"});
   const a=document.createElement("a");
