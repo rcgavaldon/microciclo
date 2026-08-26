@@ -1364,7 +1364,7 @@ function build(a){
     }
   }
   const days=map.map(m=>{
-    if(m.game) return {md:"MD",day:DAYSL[m.d],q:"Partido",game:true,ex:[],
+    if(m.game) return {md:"MD",di:m.d,day:DAYSL[m.d],q:"Partido",game:true,ex:[],
       rest:"Día de partido. Sin trabajo complementario."};
     proFlags.micro=(m.focus==="micro");
     /* A non-starter finishes the week short of the running the match would
