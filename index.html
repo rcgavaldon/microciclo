@@ -718,8 +718,11 @@ function mdMap(gameDays){
   if(!hasBuild){
     let best=null;
     out.forEach(o=>{ if(o.game) return;
+      /* Must be clear of the last match as well as the next one: a day can be
+         both MD+1 and M4, and neuromuscular fatigue runs up to 72 h. */
+      if(o.back<2||o.fwd<2) return;
       if(!best||o.fwd>best.fwd||(o.fwd===best.fwd&&o.back>best.back)) best=o; });
-    if(best&&best.fwd>=2){ best.focus="micro"; }
+    if(best){ best.focus="micro"; }
   }
   return out;
 }
