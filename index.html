@@ -1387,6 +1387,17 @@ $("printBtn").onclick=()=>window.print();
 
 function route_(){
   const h=location.hash;
+  /* A short, sendable demo link. Builds a real plan through the same engine
+     rather than shipping a canned payload that could drift out of date. */
+  if(h==="#demo"||h==="#demo/"){
+    const demo={id:"demo",name:"Diego M.",age:18,sex:"m",pos:"extremo",ht:176,wt:70,
+      ta:3,tier:"gym",prog:false,nor:3,games:[5],route:"gen",pro:{},edits:{}};
+    const plan=build(demo);
+    showAthlete({n:demo.name,p:demo.pos,g:demo.games,t:demo.tier,
+      d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
+        e:d.ex.map(x=>({i:x.id,l:x.load,d:x.detail}))}))});
+    return;
+  }
   if(h.startsWith("#r=")){
     const d=dec(h.slice(3));
     const list=d&&(Array.isArray(d)?d:d.atletas);
