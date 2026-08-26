@@ -122,7 +122,17 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
   text-transform:uppercase;color:var(--muted);margin-left:auto}
 .mins{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--muted)}
 
-.ex{display:grid;grid-template-columns:44px 1fr auto;gap:3px 12px;align-items:start;
+.thumb{grid-row:span 2;position:relative;display:block;width:72px;height:41px;
+  border-radius:2px;overflow:hidden;background:var(--sunk);cursor:pointer;
+  border:1px solid var(--rule)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.noimg img{display:none}
+.thumb .pl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.thumb .pl::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;
+  border-bottom:6px solid transparent;filter:drop-shadow(0 0 3px rgba(0,0,0,.7));margin-left:2px}
+.thumb:hover{border-color:var(--accent)}
+.thumb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ex{display:grid;grid-template-columns:72px 1fr auto;gap:3px 12px;align-items:start;
   padding:9px 15px;border-top:1px dotted var(--rule)}
 .ex .fig{grid-row:span 2;width:44px;height:44px;color:var(--muted);opacity:.85}
 .fig .pa,.fig .pb{animation:figflip 1.9s steps(1,end) infinite}
@@ -180,7 +190,8 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
 .ex.dropped .nm{text-decoration:line-through}
 @media(max-width:560px){
   .wrap{padding:16px 12px 60px}
-  .ex{grid-template-columns:34px 1fr;gap:2px 9px;padding:9px 12px}
+  .ex{grid-template-columns:64px 1fr;gap:2px 9px;padding:9px 12px}
+  .thumb{width:64px;height:36px;grid-row:span 1}
   .ex .fig{width:34px;height:34px;grid-row:span 1}
   .ex .load{grid-column:2;text-align:left;white-space:normal;margin-top:1px}
   .ex .cue,.ex .warn,.ex .rowbtns,.ex .vidwrap,.ex .vidbar{grid-column:1/-1}
@@ -428,6 +439,17 @@ const FIGID={
  "hip-airplane":{a:'<circle cx="13" cy="14" r="3.5"/><path d="M17 16l14 6M31 22v14M27 36h8M31 22l-9 2M22 24l-5 12"/>',
                  b:'<circle cx="13" cy="16" r="3.5"/><path d="M17 18l14 5M31 23v13M27 36h8M31 23l-9 4M22 27l-4 9"/>'}
 };
+/* A still frame of the actual movement beats a drawn figure, and every
+   curated exercise already has one. Falls back to the animated figure when
+   there is no video. */
+function thumb(pat,id,vid){
+  if(!vid) return fig(pat,id);
+  return `<span class="thumb" role="button" tabindex="0" data-vid="${vid}"
+    aria-label="Ver demostración">
+    <img src="https://i.ytimg.com/vi/${vid}/mqdefault.jpg" alt="" loading="lazy"
+      onerror="this.closest('.thumb').classList.add('noimg')">
+    <span class="pl"></span></span>`;
+}
 const fig=(p,id)=>{
   const f=(id&&FIGID[id])||FIG[p]||FIG.brace;
   return `<svg class="fig" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"
@@ -1009,7 +1031,7 @@ function renderWeek(node,plan,tier,athlete){
         const row=el("div","ex");
         const md=mediaFor(e.id);
         const vid=ytId(md.url);
-        row.innerHTML=`${fig(e.pat,e.id)}
+        row.innerHTML=`${thumb(e.pat,e.id,vid)}
           <span class="nm">${esc(nm)}${vid
             ? `<span class="play" role="button" tabindex="0" data-vid="${vid}">ver</span>`
             : `<a href="${esc(md.url)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
@@ -1179,7 +1201,7 @@ function showAthlete(p){
         const row=el("div","ex");
         const mu=safeUrl(x.u)||mediaFor(e.id).url;
         const vid=ytId(mu);
-        row.innerHTML=`${fig(e.pat,e.id)}
+        row.innerHTML=`${thumb(e.pat,e.id,vid)}
           <span class="nm">${esc(e.tiers[tier]||e.tiers.gym)}${vid
             ? `<span class="play" role="button" tabindex="0" data-vid="${vid}">ver</span>`
             : `<a href="${esc(mu)}" target="_blank" rel="noopener noreferrer" class="play">buscar</a>`}</span>
@@ -1202,12 +1224,12 @@ function showAthlete(p){
    youtube-nocookie so viewing does not seed tracking cookies. */
 function bindPlayers(root){
   root.addEventListener("click",ev=>{
-    const b=ev.target.closest(".play[data-vid]"); if(!b) return;
+    const b=ev.target.closest("[data-vid]"); if(!b) return;
     togglePlayer(b);
   });
   root.addEventListener("keydown",ev=>{
     if(ev.key!=="Enter"&&ev.key!==" ") return;
-    const b=ev.target.closest(".play[data-vid]"); if(!b) return;
+    const b=ev.target.closest("[data-vid]"); if(!b) return;
     ev.preventDefault(); togglePlayer(b);
   });
 }
@@ -1219,7 +1241,7 @@ function togglePlayer(b){
     w.classList.toggle("closed",open);
     if(open) w.innerHTML="";                      /* stop playback on close */
     else w.innerHTML=frameFor(b.dataset.vid);
-    b.textContent=open?"ver":"cerrar";
+    if(b.classList.contains("play")) b.textContent=open?"ver":"cerrar";
     return;
   }
   w=document.createElement("span"); w.className="vidwrap";
@@ -1230,7 +1252,7 @@ function togglePlayer(b){
   const anchor=row.querySelector(".warn")||row.querySelector(".cue");
   anchor.insertAdjacentElement("afterend",bar);
   bar.insertAdjacentElement("beforebegin",w);
-  b.textContent="cerrar";
+  if(b.classList.contains("play")) b.textContent="cerrar";
 }
 function frameFor(id){
   return `<iframe src="https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1"
