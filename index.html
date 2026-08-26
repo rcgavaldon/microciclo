@@ -1344,8 +1344,11 @@ function showAthlete(p){
     });
   };
   document.querySelectorAll(".tierBtn").forEach(b=>b.onclick=()=>{tier=b.dataset.tier;draw();});
-  draw();
+  /* The log key must be set BEFORE the first render: draw() reads stored
+     values, and setting it afterwards meant entries were written under one
+     key and read back under another, so nothing survived a reload. */
   LOGKEY="mc.log."+planStamp(p);
+  draw();
   bindLogging($("avWeek"),p.n);
   /* Mark today so the athlete knows what he is doing right now. */
   const jsDay=new Date().getDay();            /* 0 = Sunday */
