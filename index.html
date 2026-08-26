@@ -386,6 +386,11 @@ button.ghost:focus-visible,.days button:focus-visible,.rowbtns button:focus-visi
   </div>
 
   <div>
+    <section class="panel" id="logPanel">
+      <div class="hd"><h2>Lo que reportaron</h2>
+        <button class="ghost" id="refreshLogs">Actualizar</button></div>
+      <div id="logList"><div class="rest">Genera una semana para ver los registros.</div></div>
+    </section>
     <section class="panel" id="outPanel">
       <div class="hd"><h2>Semana</h2><span class="note" id="wkNote"></span></div>
       <div class="strip" id="strip"></div>
@@ -1310,9 +1315,11 @@ function renderCoachInner(){
     d:plan.days.map(d=>({m:d.md,y:d.day,q:d.q,G:d.game?1:0,r:d.rest||"",
       e:d.ex.map(x=>{const o=OVERRIDES[x.id];
         return o?{i:x.id,l:x.load,d:x.detail,u:o}:{i:x.id,l:x.load,d:x.detail};})}))};
+  current.stamp=planStamp(payload);
   const url=location.origin+location.pathname+"#a="+enc(payload);
   $("shareUrl").value=url;
   $("shareUrl").title=url.length+" caracteres";
+  loadLogs();
 
   $("foot").innerHTML=`<b>Cómo se arma.</b> El calendario manda: los días de partido definen M5&ndash;M1 hacia atrás,
     y la sesión más fuerte cae en M4. Volumen y intensidad no son lo mismo, y la distancia total no representa la carga
@@ -1732,6 +1739,39 @@ $("copyBtn").onclick=()=>{const i=$("shareUrl");if(!i.value)return;
   i.select();navigator.clipboard.writeText(i.value).then(()=>{
     $("copyBtn").textContent="Copiado";setTimeout(()=>$("copyBtn").textContent="Copiar enlace",1600);});};
 $("printBtn").onclick=()=>window.print();
+
+/* What the athlete actually did, pulled back from the server for the plan
+   currently on screen. */
+function loadLogs(){
+  const box=$("logList");
+  if(!CODE){ box.innerHTML='<div class="rest">Pon tu código arriba para recibir los registros.</div>'; return; }
+  if(!current||!current.stamp){ box.innerHTML='<div class="rest">Genera una semana primero.</div>'; return; }
+  box.innerHTML='<div class="rest">Cargando…</div>';
+  fetch(API+"/log/"+encodeURIComponent(CODE)+"/"+encodeURIComponent(current.stamp))
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(d=>{
+      const keys=Object.keys(d).filter(k=>k!=="_upd");
+      if(!keys.length){
+        box.innerHTML='<div class="rest">Todavía no ha registrado nada de esta semana.</div>';
+        return;
+      }
+      const byDay={};
+      keys.forEach(k=>{
+        const [day,ex]=k.split("|");
+        (byDay[day]=byDay[day]||[]).push({ex,...d[k]});
+      });
+      box.innerHTML=Object.keys(byDay).map(day=>
+        `<div class="day"><div class="dayhd"><span class="dayname">${esc(day)}</span></div>`+
+        byDay[day].map(r=>{
+          const e=byId(r.ex);
+          return `<div class="ex"><span></span><span class="nm">${esc(e?e.es:r.ex)}</span>`+
+            `<span class="load">${esc(r.w||"—")}${r.w?" kg":""}${r.s?" · "+esc(r.s)+" series":""}</span></div>`;
+        }).join("")+`</div>`).join("")+
+        `<div class="rest">Actualizado ${d._upd?new Date(d._upd*1000).toLocaleString("es-MX"):"—"}</div>`;
+    })
+    .catch(()=>box.innerHTML='<div class="rest">No se pudieron cargar los registros.</div>');
+}
+$("refreshLogs").onclick=loadLogs;
 
 function route_(){
   const h=location.hash;
