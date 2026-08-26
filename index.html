@@ -1256,6 +1256,17 @@ function gateOne(pfx){
 const API="https://roberto-gavaldon3--microciclo-api-api.modal.run";
 let store=load(), sel=null, route="gen", gameDays=[5], current=null;
 let CODE=(function(){try{return localStorage.getItem("mc.code")||"";}catch(e){return "";}})();
+/* Write-only companion token the server derives from the code. Athlete links
+   carry THIS, never the master code: with the alias you can send and read
+   training logs but the roster endpoints reject you. Old links that still
+   carry the code keep working server-side. */
+let LOGALIAS=(function(){try{return localStorage.getItem("mc.alias")||"";}catch(e){return "";}})();
+function setAlias(a){
+  if(!a||!/^[A-Za-z0-9_-]{8,64}$/.test(a)||a===LOGALIAS) return;
+  LOGALIAS=a; try{localStorage.setItem("mc.alias",a);}catch(e){}
+  /* The share link embeds the alias, so a freshly learned one must reprint it. */
+  if(typeof sel!=="undefined"&&sel!==null&&typeof renderCoach==="function") renderCoach();
+}
 
 function setSync(msg,tone){
   const el=$("syncState"); if(!el) return;
@@ -1272,9 +1283,9 @@ function pushRoster(){
     setSync("guardando\u2026");
     fetch(API+"/roster/"+encodeURIComponent(CODE),{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({atletas:store})
+      body:JSON.stringify({atletas:store,media:OVERRIDES})
     }).then(r=>r.ok?r.json():Promise.reject(r.status))
-      .then(d=>setSync("guardado \u00b7 "+d.n+" atletas","ok"))
+      .then(d=>{ setAlias(d.log); setSync("guardado \u00b7 "+d.n+" atletas","ok"); })
       .catch(e=>setSync("sin conexi\u00f3n \u00b7 guardado local","bad"));
   },600);
 }
@@ -1291,6 +1302,16 @@ function pullRoster(){
         const i=store.findIndex(x=>(a.id&&x.id===a.id)||(!a.id&&x.name===a.name));
         if(i>=0) store[i]=a; else store.push(a);
       });
+      /* Media overrides follow the coach across devices: the server copy is
+         the shared truth, anything set only on this device is pushed back on
+         the next save. */
+      if(d.media&&typeof d.media==="object"){
+        Object.keys(d.media).forEach(k=>{
+          if(/^[A-Za-z0-9_-]{1,64}$/.test(k)&&safeUrl(d.media[k])) OVERRIDES[k]=d.media[k];
+        });
+        saveOverrides();
+      }
+      setAlias(d.log);
       save(); drawRoster();
       setSync(list.length+" atletas en la nube","ok");
     })
@@ -1639,7 +1660,7 @@ function renderCoachInner(){
 
   /* Payload carries exercise IDs only — names, cues and figures are looked up
      from the bank on the athlete's side. Keeps the link short enough to send. */
-  const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,c:CODE||'',
+  const payload={n:a.name,p:a.pos,g:a.games,t:a.tier,c:LOGALIAS||CODE||'',
     d:plan.days.map(d=>({m:d.md,y:d.day,x:d.di,q:d.q,G:d.game?1:0,r:d.rest||"",
       e:d.ex.map(x=>{const o=OVERRIDES[x.id];
         return o?{i:x.id,l:x.load,d:x.detail,u:o}:{i:x.id,l:x.load,d:x.detail};})}))};
@@ -2326,34 +2347,55 @@ $("printBtn").onclick=()=>window.print();
 
 /* What the athlete actually did, pulled back from the server for the plan
    currently on screen. */
+function renderLogBlock(d,title){
+  const keys=Object.keys(d).filter(k=>!k.startsWith("_"));
+  if(!keys.length) return "";
+  const byDay={};
+  keys.forEach(k=>{
+    const [day,ex]=k.split("|");
+    (byDay[day]=byDay[day]||[]).push({ex,...d[k]});
+  });
+  return (title?`<div class="rest" style="opacity:.8">${esc(title)}</div>`:"")+
+    Object.keys(byDay).map(day=>
+      `<div class="day"><div class="dayhd"><span class="dayname">${esc(day)}</span></div>`+
+      byDay[day].map(r=>{
+        const e=byId(r.ex);
+        return `<div class="ex"><span></span><span class="nm">${esc(e?e.es:r.ex)}</span>`+
+          `<span class="load">${esc(r.w||"—")}${r.w?" kg":""}${r.s?" · "+esc(r.s)+" series":""}</span></div>`;
+      }).join("")+`</div>`).join("");
+}
 function loadLogs(){
   const box=$("logList");
   if(!CODE){ box.innerHTML='<div class="rest">Pon tu código arriba para recibir los registros.</div>'; return; }
   if(!current||!current.stamp){ box.innerHTML='<div class="rest">Genera una semana primero.</div>'; return; }
   box.innerHTML='<div class="rest">Cargando…</div>';
-  fetch(API+"/log/"+encodeURIComponent(CODE)+"/"+encodeURIComponent(current.stamp))
-    .then(r=>r.ok?r.json():Promise.reject(r.status))
-    .then(d=>{
-      const keys=Object.keys(d).filter(k=>k!=="_upd");
-      if(!keys.length){
-        box.innerHTML='<div class="rest">Todavía no ha registrado nada de esta semana.</div>';
-        return;
-      }
-      const byDay={};
-      keys.forEach(k=>{
-        const [day,ex]=k.split("|");
-        (byDay[day]=byDay[day]||[]).push({ex,...d[k]});
+  const a=(sel!==null&&store[sel])?store[sel]:null;
+  const athHash=a?planStamp({n:a.name}):"";
+  /* Regenerating (or bumping the block week) used to orphan everything the
+     athlete had already reported: the panel fetched only the new stamp. Now
+     the current week is shown first and the athlete's recent past weeks —
+     matched by their name hash — stay visible under it. */
+  Promise.all([
+    fetch(API+"/log/"+encodeURIComponent(CODE)+"/"+encodeURIComponent(current.stamp))
+      .then(r=>r.ok?r.json():{}).catch(()=>({})),
+    fetch(API+"/logs/"+encodeURIComponent(CODE))
+      .then(r=>r.ok?r.json():{logs:[]}).catch(()=>({logs:[]}))
+  ]).then(([cur,all])=>{
+    let html=renderLogBlock(cur,"");
+    if(html) html+=`<div class="rest">Actualizado ${cur._upd?new Date(cur._upd*1000).toLocaleString("es-MX"):"—"}</div>`;
+    const past=(all.logs||[])
+      .filter(l=>l.plan!==current.stamp&&l.n>0&&(!athHash||l.ath===athHash))
+      .slice(0,3);
+    const fetches=past.map(l=>fetch(API+"/log/"+encodeURIComponent(CODE)+"/"+encodeURIComponent(l.plan))
+      .then(r=>r.ok?r.json():{}).catch(()=>({})));
+    Promise.all(fetches).then(recs=>{
+      recs.forEach((d,i)=>{
+        const when=past[i].upd?new Date(past[i].upd*1000).toLocaleDateString("es-MX"):"";
+        html+=renderLogBlock(d,"Semana anterior · "+when);
       });
-      box.innerHTML=Object.keys(byDay).map(day=>
-        `<div class="day"><div class="dayhd"><span class="dayname">${esc(day)}</span></div>`+
-        byDay[day].map(r=>{
-          const e=byId(r.ex);
-          return `<div class="ex"><span></span><span class="nm">${esc(e?e.es:r.ex)}</span>`+
-            `<span class="load">${esc(r.w||"—")}${r.w?" kg":""}${r.s?" · "+esc(r.s)+" series":""}</span></div>`;
-        }).join("")+`</div>`).join("")+
-        `<div class="rest">Actualizado ${d._upd?new Date(d._upd*1000).toLocaleString("es-MX"):"—"}</div>`;
-    })
-    .catch(()=>box.innerHTML='<div class="rest">No se pudieron cargar los registros.</div>');
+      box.innerHTML=html||'<div class="rest">Todavía no ha registrado nada de esta semana.</div>';
+    });
+  }).catch(()=>box.innerHTML='<div class="rest">No se pudieron cargar los registros.</div>');
 }
 $("refreshLogs").onclick=loadLogs;
 

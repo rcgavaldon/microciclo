@@ -12,6 +12,7 @@ the data is training loads, not medical records, and the alternative is an
 account system nobody will sign up for.
 """
 
+import hashlib
 import json
 import re
 import time
@@ -78,6 +79,27 @@ def api():
             raise HTTPException(400, "token inválido")
         return tok
 
+    # ---- log alias: what athlete links carry instead of the master token ----
+    # The share link used to embed the coach's read/write roster token, which
+    # let any athlete decode it and read or overwrite the whole client list.
+    # Now the roster endpoints hand back a derived write-only alias; athlete
+    # links carry that, and the log endpoints resolve it. Old links with the
+    # real token keep working (resolve() passes unknown tokens through).
+    def _alias_of(tok: str) -> str:
+        return "lg" + hashlib.sha256(("mc-log:" + tok).encode()).hexdigest()[:22]
+
+    def _register_alias(tok: str) -> str:
+        a = _alias_of(tok)
+        p = _path("aliases", a)
+        if _read(p, None) != tok:
+            _write(p, tok)
+        return a
+
+    def resolve(tok: str) -> str:
+        t = check(tok)
+        real = _read(_path("aliases", t), None)
+        return real if isinstance(real, str) and SAFE.match(real) else t
+
     @web.get("/health")
     def health():
         return {"ok": True, "t": int(time.time())}
@@ -88,7 +110,11 @@ def api():
     def get_roster(token: str):
         t = check(token)
         vol.reload()
-        return {"atletas": _read(_path("coaches", t, "roster.json"), [])}
+        alias = _register_alias(t)
+        vol.commit()
+        return {"atletas": _read(_path("coaches", t, "roster.json"), []),
+                "media": _read(_path("coaches", t, "media.json"), {}),
+                "log": alias}
 
     @web.post("/roster/{token}")
     async def put_roster(token: str, request: Request):
@@ -104,8 +130,20 @@ def api():
             raise HTTPException(413, "lista demasiado grande")
         vol.reload()
         _write(_path("coaches", t, "roster.json"), athletes)
+        # Optional media overrides (exercise-id -> video URL). Synced so the
+        # coach's own videos follow them across devices instead of living in
+        # one browser's localStorage.
+        media = body.get("media")
+        if isinstance(media, dict):
+            clean = {}
+            for k, v in list(media.items())[:100]:
+                if (isinstance(k, str) and SAFE.match(k) and isinstance(v, str)
+                        and v.startswith(("http://", "https://")) and len(v) <= 300):
+                    clean[k] = v
+            _write(_path("coaches", t, "media.json"), clean)
+        alias = _register_alias(t)
         vol.commit()
-        return {"ok": True, "n": len(athletes)}
+        return {"ok": True, "n": len(athletes), "log": alias}
 
     # ---------------- training log ----------------
     # Written by the athlete's own link, read by both sides. The plan id
@@ -113,7 +151,7 @@ def api():
 
     @web.get("/log/{token}/{plan}")
     def get_log(token: str, plan: str):
-        t = check(token)
+        t = resolve(token)
         if not SAFE.match(plan):
             raise HTTPException(400, "plan inválido")
         vol.reload()
@@ -121,7 +159,7 @@ def api():
 
     @web.post("/log/{token}/{plan}")
     async def put_log(token: str, plan: str, request: Request):
-        t = check(token)
+        t = resolve(token)
         if not SAFE.match(plan):
             raise HTTPException(400, "plan inválido")
         body = await request.json()
@@ -153,7 +191,7 @@ def api():
     def last_weights(token: str, ath: str, skip: str = ""):
         import os
 
-        t = check(token)
+        t = resolve(token)
         if not SAFE.match(ath):
             raise HTTPException(400, "atleta inválido")
         vol.reload()
@@ -191,6 +229,7 @@ def api():
                 if fn.endswith(".json"):
                     rec = _read(os.path.join(d, fn), {})
                     out.append({"plan": fn[:-5], "upd": rec.get("_upd", 0),
+                                "ath": rec.get("_ath", ""),
                                 "n": sum(1 for k in rec if not k.startswith("_"))})
         out.sort(key=lambda r: -r["upd"])
         return {"logs": out[:200]}
